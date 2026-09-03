@@ -111,6 +111,19 @@ Keyboard: `Space` play/pause, `R` shuffle seed, `G` guides, `⌘Z` undo.
 The right-hand panel splits into four tabs: **Design** (the beams), **Motion**, **Typography**
 and **Logos**.
 
+## Deploying
+
+Pushing to `main` publishes the studio to GitHub Pages — `.github/workflows/pages.yml` stages
+`index.html`, `css/`, `js/` and `fonts/` and hands them to Pages. There is no build step; the
+tool is plain ES modules and every path is relative, so it runs the same at a repository
+subpath as it does locally.
+
+It needs one setting once: **Settings → Pages → Source → GitHub Actions**. Until that is set the
+workflow will run and fail at the last step with nothing to deploy to.
+
+The variable brand face is committed, so a deployed copy sets the type properly. Without it the
+tool still runs but falls back to Helvetica, and the family and style menus come up empty.
+
 ## Layout
 
 - `js/geometry.js` — turns state into beam ribbons (the pattern templates live here)
