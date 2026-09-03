@@ -5,7 +5,7 @@ import { anchorPoint } from './geometry.js';
 import { drawMockup } from './mockups.js';
 import { exportPNG, exportSVG, exportVideo, exportJSON, videoMime } from './export.js';
 import { buildControls, getPath, setPath } from './ui.js';
-import { loadProjectFonts, onFontsChanged, fontInstances, hasAxis, axisRange } from './fonts.js';
+import { loadProjectFonts, onFontsChanged, fontNames, fontInstances, hasAxis, axisRange } from './fonts.js';
 
 const $ = s => document.querySelector(s);
 const STORAGE = 'tns-studio-state-v1';
@@ -223,19 +223,20 @@ const tpl = id => s => s.shape.template === id;
 const anyOf = (...ids) => s => ids.includes(s.shape.template);
 
 // ---------- type controls ----------
-// 16px line icons so the numeric fields read as pictures, the way Figma's do.
+// Icons follow Figma's: a glyph that names the property rather than a generic arrow.
 const ICO = {
-  size:  '<svg viewBox="0 0 16 16"><path d="M1.5 13 5.5 3 9.5 13M2.9 10.2h5.2"/><path d="M12.8 3.6v8.8M11.3 5.1l1.5-1.5 1.5 1.5M11.3 10.9l1.5 1.5 1.5-1.5"/></svg>',
-  lineh: '<svg viewBox="0 0 16 16"><path d="M2 2.8h12M2 13.2h12"/><path d="M8 5.2v5.6M6.6 6.6 8 5.2l1.4 1.4M6.6 9.4 8 10.8l1.4-1.4"/></svg>',
-  track: '<svg viewBox="0 0 16 16"><path d="M2.6 2.8v10.4M13.4 2.8v10.4"/><path d="M5.4 8h5.2M6.8 6.6 5.4 8l1.4 1.4M9.2 6.6 10.6 8 9.2 9.4"/></svg>',
-  rot:   '<svg viewBox="0 0 16 16"><path d="M13.2 8a5.2 5.2 0 1 1-1.7-3.85"/><path d="M13.4 3v2.4H11"/></svg>',
-  x:     '<svg viewBox="0 0 16 16"><path d="M2 8h11.4M11.2 5.8 13.4 8l-2.2 2.2"/></svg>',
-  y:     '<svg viewBox="0 0 16 16"><path d="M8 2v11.4M5.8 11.2 8 13.4l2.2-2.2"/></svg>',
+  lineh: '<svg viewBox="0 0 16 16"><path d="M3.4 11.6 8 3.2l4.6 8.4M5.2 9.1h5.6"/><path d="M2.4 14h11.2"/></svg>',
+  track: '<svg viewBox="0 0 16 16"><path d="M4.6 11.4 8 4.4l3.4 7M5.9 9.4h4.2"/><path d="M1.9 2.8v10.4M14.1 2.8v10.4"/></svg>',
+  rot:   '<svg viewBox="0 0 16 16"><path d="M3.4 3v10h10"/><path d="M3.4 8.4A4.6 4.6 0 0 1 8 13"/></svg>',
 };
-const alignIcon = (a, b, c) => `<svg viewBox="0 0 16 16"><path d="M${a} 4h8M${b} 8h5M${c} 12h9"/></svg>`;
+const alignIcon = (a, b, c) => `<svg viewBox="0 0 16 16"><path d="M${a} 4.5h8M${b} 8h5M${c} 11.5h9"/></svg>`;
 const ALIGN_ICONS = { left: alignIcon(3, 3, 3), center: alignIcon(4, 5.5, 3.5), right: alignIcon(5, 8, 4) };
-const vAlignIcon = y => `<svg viewBox="0 0 16 16"><path d="M2.5 ${y}h11"/><rect x="4.5" y="${y === 3 ? 5 : y === 8 ? 5.5 : 4.5}" width="7" height="6" rx="1" fill="currentColor" stroke="none" opacity=".55"/></svg>`;
-const VALIGN_ICONS = { top: vAlignIcon(3), middle: vAlignIcon(8), bottom: vAlignIcon(13) };
+// Vertical align, Figma's idiom: the rule the text sits against, with arrows into it.
+const VALIGN_ICONS = {
+  top: '<svg viewBox="0 0 16 16"><path d="M3 3h10"/><path d="M8 13.2V5.6M5.6 8 8 5.6 10.4 8"/></svg>',
+  middle: '<svg viewBox="0 0 16 16"><path d="M3 8h10"/><path d="M8 2.4v3.4M6.5 4.3 8 5.8l1.5-1.5M8 13.6v-3.4M6.5 11.7 8 10.2l1.5 1.5"/></svg>',
+  bottom: '<svg viewBox="0 0 16 16"><path d="M3 13h10"/><path d="M8 2.8v7.6M5.6 8 8 10.4 10.4 8"/></svg>',
+};
 
 // Named instances of the variable font, grouped by width — the "Style" dropdown.
 const WIDTH_NAMES = { 50: 'Compressed', 75: 'Condensed', 100: 'Normal', 125: 'Wide', 150: 'Ultra', 200: 'Extended' };
@@ -254,25 +255,31 @@ function styleOptions() {
     .map(w => ({ group: WIDTH_NAMES[w] || `Width ${w}`, options: byWidth.get(w) }));
 }
 const axis = (tag, fallback) => axisRange(FONT, tag) || fallback;
+// The chevron beside the size field: sizes that mean something relative to the canvas.
+const sizePresets = s => [10, 20, 30, 40, 50, 62, 75, 100].map(pc => ({ label: `${pc}% of height`, value: Math.round(s.size.h * pc / 100) }));
 
 const TYPE_GROUP = { title: 'Type', controls: [
   { path: 'headline.enabled', label: 'Show', type: 'checkbox' },
   { path: 'headline.text', type: 'textarea', rows: 2, placeholder: 'Headline (new lines allowed)' },
-  { type: 'note', text: FONT.replace(' Variable', ''), wide: true },
-  { type: 'fields', cols: '1.4fr 1fr', items: [
+  { type: 'fields', cols: '1fr', items: [
+    { type: 'select', compact: true, path: 'headline.font', options: () => fontNames(), title: 'Family' },
+  ] },
+  { type: 'fields', cols: '1.25fr 1fr 30px', items: [
     { type: 'select', compact: true, options: styleOptions, allowCustom: true, title: 'Style',
       get: s => styleKey(s.headline),
       onSet: v => { const [wdth, wght, slnt] = v.split(',').map(Number); patch({ headline: { wdth, wght, slnt } }); } },
     // Size, line height and tracking read in the units a designer thinks in, not fractions.
-    { type: 'field', icon: ICO.size, title: 'Size (px)', min: 4, max: 6000, step: 1, scrub: 3, unit: ' px',
+    { type: 'field', title: 'Size (px)', min: 4, max: 6000, step: 1, scrub: 3,
       get: s => s.headline.size * s.size.h, onSet: v => set('headline.size', v / state.size.h) },
+    { type: 'presets', presets: sizePresets, onSet: v => set('headline.size', v / state.size.h) },
   ] },
   { type: 'fields', items: [
-    { type: 'field', icon: ICO.lineh, title: 'Line height', min: 40, max: 300, step: 1, unit: '%',
+    { label: 'Line height', type: 'field', icon: ICO.lineh, title: 'Line height', min: 40, max: 300, step: 1, unit: '%',
       get: s => s.headline.lineHeight * 100, onSet: v => set('headline.lineHeight', v / 100) },
-    { type: 'field', icon: ICO.track, title: 'Letter spacing', min: -20, max: 60, step: 0.1, decimals: 1, scrub: 0.2, unit: '%',
+    { label: 'Letter spacing', type: 'field', icon: ICO.track, title: 'Letter spacing', min: -20, max: 60, step: 0.1, decimals: 1, scrub: 0.2, unit: '%',
       get: s => s.headline.letterSpacing * 100, onSet: v => set('headline.letterSpacing', v / 100) },
   ] },
+  { type: 'sublabel', text: 'Alignment' },
   { type: 'fields', items: [
     { type: 'iconseg', path: 'headline.align', options: [
       { value: 'left', icon: ALIGN_ICONS.left, title: 'Align left' },
@@ -283,14 +290,17 @@ const TYPE_GROUP = { title: 'Type', controls: [
       { value: 'middle', icon: VALIGN_ICONS.middle, title: 'Align middle' },
       { value: 'bottom', icon: VALIGN_ICONS.bottom, title: 'Align bottom' } ] },
   ] },
+  { type: 'sublabel', text: 'Position' },
   { type: 'fields', items: [
-    { type: 'field', icon: ICO.x, title: 'X (px)', min: -20000, max: 20000, step: 1, scrub: 3,
+    { type: 'field', text: 'X', title: 'X (px)', min: -20000, max: 20000, step: 1, scrub: 3, decimals: 0,
       get: s => s.headline.x * s.size.w, onSet: v => set('headline.x', v / state.size.w) },
-    { type: 'field', icon: ICO.y, title: 'Y (px)', min: -20000, max: 20000, step: 1, scrub: 3,
+    { type: 'field', text: 'Y', title: 'Y (px)', min: -20000, max: 20000, step: 1, scrub: 3, decimals: 0,
       get: s => s.headline.y * s.size.h, onSet: v => set('headline.y', v / state.size.h) },
-    { type: 'field', icon: ICO.rot, path: 'headline.rotate', title: 'Rotation', min: -90, max: 90, step: 1, scrub: 0.5, unit: '°' },
   ] },
-  { path: 'headline.color', label: 'Colour', type: 'color' },
+  { type: 'fields', cols: '1fr 1fr', items: [
+    { label: 'Rotation', type: 'field', icon: ICO.rot, path: 'headline.rotate', title: 'Rotation', min: -90, max: 90, step: 1, scrub: 0.5, unit: '°' },
+    { label: 'Colour', type: 'color', path: 'headline.color' },
+  ] },
   { path: 'headline.behind', label: 'Behind beams', type: 'checkbox' },
   { label: 'Place', type: 'buttons', wide: true, buttons: [
     { label: 'Centre', onClick: () => patch({ headline: { x: 0.5, y: 0.5, align: 'center', valign: 'middle' } }) },

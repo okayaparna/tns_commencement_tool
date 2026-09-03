@@ -39,7 +39,7 @@ export function buildControls(container, groups, ctx) {
 
 // One labelled row. Field rows carry their label inside the box, so they skip the label column.
 function makeRow(c, ctx) {
-  const bare = c.type === 'fields' || c.type === 'note' || c.wide || c.type === 'textarea';
+  const bare = ['fields', 'note', 'sublabel', 'textarea'].includes(c.type) || c.wide;
   const row = el('div', 'ctrl' + (bare ? ' wide' : ''));
   if (!bare && (c.type !== 'textarea' || c.label)) row.appendChild(el('label', null, c.label));
   const input = makeInput(c, ctx);
@@ -63,20 +63,41 @@ function makeInput(c, ctx) {
     }
     case 'select': return makeSelect(c, read, write);
     case 'field': return makeField(c, read, write);
-    // A row of compact fields / selects sharing one line, Figma-style.
+    // A row of compact controls sharing one line, each optionally captioned above —
+    // the shape of Figma's Typography and Position sections.
     case 'fields': {
       const wrap = el('div', 'fieldrow');
       wrap.style.gridTemplateColumns = c.cols || `repeat(${c.items.length}, minmax(0, 1fr))`;
       const kids = c.items.map(item => {
+        const cell = el('div', 'fcell');
+        if (item.label) cell.appendChild(el('span', 'flabel', item.label));
         const made = makeInput(item, ctx);
-        wrap.appendChild(made.node);
-        return { item, made };
+        cell.appendChild(made.node);
+        wrap.appendChild(cell);
+        return { item, made, cell };
       });
-      return { node: wrap, refresh: s => kids.forEach(({ item, made }) => {
+      return { node: wrap, refresh: s => kids.forEach(({ item, made, cell }) => {
         const vis = !item.when || item.when(s);
-        made.node.hidden = !vis;
+        cell.hidden = !vis;
         if (vis) made.refresh(s);
       }) };
+    }
+    // Section caption, e.g. the word "Alignment" over a pair of icon groups.
+    case 'sublabel': return { node: el('span', 'flabel solo', c.text), refresh: () => {} };
+    // A bare chevron that drops a list of preset values into the field beside it.
+    case 'presets': {
+      const sel = el('select', 'chev');
+      const fill = st => {
+        sel.innerHTML = '';
+        sel.appendChild(el('option', null, ''));
+        for (const p of (typeof c.presets === 'function' ? c.presets(st) : c.presets)) {
+          const o = el('option', null, p.label); o.value = p.value; sel.appendChild(o);
+        }
+        sel.value = '';
+      };
+      fill(ctx.getState());
+      sel.addEventListener('change', () => { if (sel.value !== '') { write(parseFloat(sel.value)); sel.value = ''; } });
+      return { node: sel, refresh: st => fill(st) };
     }
     case 'seg': {
       const wrap = el('div', 'seg');
@@ -165,7 +186,9 @@ function makeSelect(c, read, write) {
 function makeField(c, read, write) {
   const wrap = el('div', 'field');
   wrap.title = c.title || c.label || '';
-  const ic = el('span', 'ico'); ic.innerHTML = c.icon || '';
+  // Figma labels some fields with a glyph ("X", "Y") and others with a line icon.
+  const ic = el('span', 'ico' + (c.text ? ' glyph' : ''));
+  if (c.text) ic.textContent = c.text; else ic.innerHTML = c.icon || '';
   const i = el('input', 'num'); i.type = 'text'; i.inputMode = 'decimal';
   wrap.append(ic, i);
 

@@ -29,13 +29,13 @@ then visit http://localhost:8765 (ES modules do not run from `file://`).
 - **Motion**: colour run, sway, anchor drift; "fit duration to a seamless loop".
 - **Export**: PNG (0.5× / 1× / 2×), SVG (vector, font embedded), video
   (MP4 in Chrome 126+ / Safari, WebM elsewhere), and JSON presets.
-- **Type**: one family — Neue Display Next Variable, loaded from `fonts/`. The Type panel is
-  laid out like Figma's: a **Style** dropdown listing all 108 of the font's named instances
-  (Compressed → Extended × Hairline → Black, roman and italic), then compact fields for size,
-  line height, tracking, position and rotation in px / % / °. Drag a field's icon sideways to
-  scrub the value, or type over it; arrow keys nudge (Shift for ×10). *Variable axes* underneath
-  gives raw **Weight** (100-900), **Width** (50-200) and **Slant** (0 to -20) for anything
-  between two named instances.
+- **Type**: one family — Neue Display Next Variable, loaded from `fonts/`. The Type panel copies
+  Figma's Typography and Position sections: family, then a **Style** dropdown listing all 108 of
+  the font's named instances (Compressed → Extended × Hairline → Black, roman and italic) beside
+  the size and its preset chevron, then captioned fields for line height, tracking, alignment,
+  position and rotation in px / % / °. Drag a field's icon sideways to scrub the value, or type
+  over it; arrow keys nudge (Shift for ×10). *Variable axes* underneath gives raw **Weight**
+  (100-900), **Width** (50-200) and **Slant** (0 to -20) for anything between two instances.
 - **Fonts**: the family is listed in `fonts/fonts.json`:
 
 ```json
