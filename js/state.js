@@ -51,10 +51,10 @@ export const MOCKUPS = [
 ];
 
 export const DEFAULT_STATE = {
-  version: 8,
+  version: 9,
   size: { preset: 'wide', w: 1920, h: 1080 },
   background: BRAND.blue,
-  palette: [BRAND.pink, BRAND.green, BRAND.red, BRAND.blue],
+  palette: [BRAND.pink, BRAND.green, BRAND.red],
   shape: {
     template: 'weave',
     count: 9,
@@ -115,18 +115,18 @@ export const DEFAULT_STATE = {
 // Built-in looks: partial states merged onto the defaults.
 export const LOOKS = [
   { id: 'weave-blue', label: 'Weave · blue', swatch: [BRAND.blue, BRAND.pink, BRAND.green, BRAND.red], state: {
-    background: BRAND.blue, palette: [BRAND.pink, BRAND.green, BRAND.red, BRAND.blue],
+    background: BRAND.blue, palette: [BRAND.pink, BRAND.green, BRAND.red],
     shape: { template: 'weave', count: 9, baseWidth: 0.09, angle: -18, span: 34, spread: 0.9, jitter: 0.5, seed: 7 },
     fill: { mode: 'gradient' }, headline: { text: '2025', size: 0.62 },
   } },
   { id: 'fan-pink', label: 'Fan · pink poster', swatch: [BRAND.pink, BRAND.red, BRAND.blue, BRAND.green], state: {
-    background: BRAND.pink, palette: [BRAND.red, BRAND.blue, BRAND.green, BRAND.pink],
+    background: BRAND.pink, palette: [BRAND.red, BRAND.blue, BRAND.green],
     shape: { template: 'rays', count: 14, baseWidth: 0.006, outerWidth: 0.14, edgeCurve: 1.3, focusX: 0.5, focusY: -0.15, angle: 90, span: 70, twoSided: false, jitter: 0.6, seed: 3, widthVariation: 0.6 },
     fill: { mode: 'stripes', stripes: 3, seam: 0.04 },
     headline: { text: '20\n25', size: 0.42, lineHeight: 0.84, letterSpacing: -0.02 },
   } },
   { id: 'fan-green', label: 'Fan · green poster', swatch: [BRAND.green, BRAND.pink, BRAND.red, BRAND.blue], state: {
-    background: BRAND.green, palette: [BRAND.pink, BRAND.red, BRAND.blue, BRAND.green],
+    background: BRAND.green, palette: [BRAND.pink, BRAND.red, BRAND.blue],
     shape: { template: 'rays', count: 14, baseWidth: 0.006, outerWidth: 0.14, edgeCurve: 1.3, focusX: 0.55, focusY: -0.15, angle: 90, span: 70, twoSided: false, jitter: 0.6, seed: 5, widthVariation: 0.6 },
     fill: { mode: 'stripes', stripes: 3, seam: 0.04 },
     headline: { text: '20\n25', size: 0.42, lineHeight: 0.84, letterSpacing: -0.02 },

@@ -14,13 +14,42 @@ const BACKGROUNDS = [
   { hex: BRAND.green, label: 'Green' }, { hex: BRAND.red, label: 'Red' },
   { hex: BRAND.white, label: 'White' }, { hex: BRAND.black, label: 'Black' },
 ];
+// Beams are the four colours only — black and white are ground, never stroke — and never the
+// colour the background is already set to, which would just cut a hole in the pattern.
+const STROKE_COLOURS = BACKGROUNDS.filter(c => c.hex !== BRAND.white && c.hex !== BRAND.black);
+const same = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
+const strokeAllowed = (hex, bg) => STROKE_COLOURS.some(c => same(c.hex, hex)) && !same(hex, bg);
+// Drop anything the rules disallow, keeping at least one colour to draw with. Used when a
+// document arrives from disk or storage and may predate the rules.
+function legalPalette(palette, background) {
+  const keep = (palette || []).filter(c => strokeAllowed(c, background));
+  return keep.length ? keep : [STROKE_COLOURS.find(c => !same(c.hex, background)).hex];
+}
+// Changing the background only invalidates one colour, so swap that one for a spare rather
+// than dropping it — otherwise cycling through backgrounds quietly eats the palette.
+function repalette(palette, background) {
+  const out = [];
+  for (const c of palette || []) {
+    if (strokeAllowed(c, background)) { out.push(c); continue; }
+    const spare = STROKE_COLOURS.find(x => !same(x.hex, background) && !out.includes(x.hex) && !palette.includes(x.hex));
+    if (spare) out.push(spare.hex);
+  }
+  return out.length ? out : legalPalette([], background);
+}
 const STORAGE = 'tns-studio-state-v1';
 
 // ---------- state ----------
 let state = loadState();
 let history = [], lastPush = 0;
 function loadState() {
-  try { const s = JSON.parse(localStorage.getItem(STORAGE)); if (s && s.version === DEFAULT_STATE.version) return deepMerge(DEFAULT_STATE, s); } catch (_) {}
+  try {
+    const s = JSON.parse(localStorage.getItem(STORAGE));
+    if (s && s.version === DEFAULT_STATE.version) {
+      const merged = deepMerge(DEFAULT_STATE, s);
+      merged.palette = legalPalette(merged.palette, merged.background);
+      return merged;
+    }
+  } catch (_) {}
   return deepClone(DEFAULT_STATE);
 }
 let saveTimer;
@@ -32,7 +61,13 @@ function pushHistory() {
 }
 function set(path, value) { pushHistory(); setPath(state, path, value); changed(); }
 function patch(partial) { pushHistory(); state = deepMerge(state, partial); changed(); }
-function replaceState(s) { pushHistory(); state = deepMerge(DEFAULT_STATE, s); changed(); }
+function replaceState(s) {
+  pushHistory();
+  state = deepMerge(DEFAULT_STATE, s);
+  // A preset from disk, or an older one, can carry colours the rules no longer allow.
+  state.palette = legalPalette(state.palette, state.background);
+  changed();
+}
 function undo() { const s = history.pop(); if (s) { state = JSON.parse(s); changed(); } }
 function changed() { persist(); syncUI(); requestRender(); }
 
@@ -360,12 +395,12 @@ function buildLeft() {
     const b = document.createElement('button');
     b.className = 'sw-btn'; b.dataset.color = c.hex; b.title = c.label;
     b.style.background = c.hex;
-    b.addEventListener('click', () => set('background', c.hex));
+    b.addEventListener('click', () => patch({ background: c.hex, palette: repalette(state.palette, c.hex) }));
     bgs.appendChild(b);
   }
   $('#btn-add-color').addEventListener('click', e =>
     openSwatchPicker(e.currentTarget, hex => set('palette', [...state.palette, hex])));
-  $('#btn-brand-colors').addEventListener('click', () => set('palette', [BRAND.pink, BRAND.green, BRAND.red, BRAND.blue]));
+  $('#btn-brand-colors').addEventListener('click', () => set('palette', legalPalette(STROKE_COLOURS.map(c => c.hex), state.background)));
   $('#btn-shuffle-colors').addEventListener('click', () => set('palette', [...state.palette.slice(1), state.palette[0]]));
   const mk = $('#mockup'); mk.innerHTML = '';
   for (const m of MOCKUPS) { const o = document.createElement('option'); o.value = m.id; o.textContent = m.label; mk.appendChild(o); }
@@ -382,10 +417,13 @@ let activeLook = null;
 function openSwatchPicker(anchor, onPick) {
   document.querySelector('.swatch-pop')?.remove();
   const pop = document.createElement('div'); pop.className = 'swatch-pop';
-  for (const c of BACKGROUNDS) {
+  for (const c of STROKE_COLOURS) {
     const b = document.createElement('button');
-    b.style.background = c.hex; b.title = c.label;
-    b.addEventListener('click', () => { pop.remove(); onPick(c.hex); });
+    b.style.background = c.hex;
+    const clash = same(c.hex, state.background);
+    b.disabled = clash;
+    b.title = clash ? `${c.label} is the background` : c.label;
+    if (!clash) b.addEventListener('click', () => { pop.remove(); onPick(c.hex); });
     pop.appendChild(b);
   }
   const r = anchor.getBoundingClientRect();

@@ -68,7 +68,8 @@ code { background: #eee; padding: 1px 4px; border-radius: 4px; }
 /* Colours come from the brand set, so picking one is a row of swatches, not a colour dialogue. */
 .swatch-pop { position: fixed; z-index: 60; display: flex; gap: 6px; padding: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.16); }
 .swatch-pop button { width: 30px; height: 30px; padding: 0; border-radius: 7px; border: 1px solid rgba(0,0,0,.12); }
-.swatch-pop button:hover { transform: scale(1.08); }
+.swatch-pop button:hover:not(:disabled) { transform: scale(1.08); }
+.swatch-pop button:disabled { opacity: .25; cursor: not-allowed; }
 .swatches { display: flex; gap: 6px; margin-top: 6px; }
 .sw-btn { width: 34px; height: 34px; padding: 0; border-radius: 8px; border: 1px solid rgba(0,0,0,.12); }
 .sw-btn:hover { transform: scale(1.06); }
