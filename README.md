@@ -76,8 +76,10 @@ then visit http://localhost:8765 (ES modules do not run from `file://`).
 - **Logo**: The New School mark, on by default and switchable off, in white, black or red. It is
   the only logo — no uploads — and it is drawn as vector, so it stays sharp at poster size and
   exports as paths in the SVG rather than an embedded bitmap. Its panel carries the same
-  alignment and position block as the type, and on the canvas it gets the same frame and corner
-  grip — drag to move, drag the corner to size it.
+  a position block: the alignment buttons snap it to a canvas edge or centre — they move it on
+  the page, they are not about how it hangs off its own point — and X/Y read in pixels. On the
+  canvas it gets the same frame and corner grip as the type: drag to move, drag the corner to
+  size it.
 - **Rulers**: asset-pixel rules along the top and left, with the headline's extent shaded on
   both — under Canvas, next to Guides. They are hidden inside a tilted mockup, where a
   horizontal rule would not measure anything.

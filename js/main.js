@@ -476,6 +476,23 @@ const ICO = {
 const alignIcon = (a, b, c) => `<svg viewBox="0 0 16 16"><path d="M${a} 4.5h8M${b} 8h5M${c} 11.5h9"/></svg>`;
 const ALIGN_ICONS = { left: alignIcon(3, 3, 3), center: alignIcon(4, 5.5, 3.5), right: alignIcon(5, 8, 4) };
 // Vertical align, Figma's idiom: the rule the text sits against, with arrows into it.
+// Canvas alignment: a rule at the edge you are aligning to, with the object pushed against it.
+// Distinct from the type's own alignment, which is about the setting inside the text block.
+const snapIcon = (rule, block) => `<svg viewBox="0 0 16 16"><path d="${rule}"/><rect ${block} rx="1" fill="currentColor" stroke="none" opacity=".55"/></svg>`;
+const SNAP_X = {
+  left: snapIcon('M2.6 2.5v11', 'x="4.6" y="5" width="7.4" height="6"'),
+  center: snapIcon('M8 2.5v11', 'x="4.3" y="5" width="7.4" height="6"'),
+  right: snapIcon('M13.4 2.5v11', 'x="4" y="5" width="7.4" height="6"'),
+};
+const SNAP_Y = {
+  top: snapIcon('M2.5 2.6h11', 'x="5" y="4.6" width="6" height="7.4"'),
+  middle: snapIcon('M2.5 8h11', 'x="5" y="4.3" width="6" height="7.4"'),
+  bottom: snapIcon('M2.5 13.4h11', 'x="5" y="4" width="6" height="7.4"'),
+};
+// Which canvas edge the mark is currently sitting against, if any.
+const snapX = o => (o.align === 'left' && o.x === 0 ? 'left' : o.align === 'center' && o.x === 0.5 ? 'center' : o.align === 'right' && o.x === 1 ? 'right' : '');
+const snapY = o => (o.valign === 'top' && o.y === 0 ? 'top' : o.valign === 'middle' && o.y === 0.5 ? 'middle' : o.valign === 'bottom' && o.y === 1 ? 'bottom' : '');
+
 const VALIGN_ICONS = {
   top: '<svg viewBox="0 0 16 16"><path d="M3 3h10"/><path d="M8 13.2V5.6M5.6 8 8 5.6 10.4 8"/></svg>',
   middle: '<svg viewBox="0 0 16 16"><path d="M3 8h10"/><path d="M8 2.4v3.4M6.5 4.3 8 5.8l1.5-1.5M8 13.6v-3.4M6.5 11.7 8 10.2l1.5 1.5"/></svg>',
@@ -523,7 +540,7 @@ const TYPE_GROUP = { controls: [
     { label: 'Letter spacing', type: 'field', icon: ICO.track, title: 'Letter spacing', min: -20, max: 60, step: 0.1, decimals: 1, scrub: 0.2, unit: '%',
       get: s => s.headline.letterSpacing * 100, onSet: v => set('headline.letterSpacing', v / 100) },
   ] },
-  { type: 'sublabel', text: 'Alignment' },
+  { type: 'sublabel', text: 'Text alignment' },
   { type: 'fields', items: [
     { type: 'iconseg', path: 'headline.align', options: [
       { value: 'left', icon: ALIGN_ICONS.left, title: 'Align left' },
@@ -619,14 +636,19 @@ const SCHEMA = [
     { path: 'logo.opacity', label: 'Opacity', type: 'range', min: 0, max: 1, step: 0.01 },
     { type: 'sublabel', text: 'Alignment' },
     { type: 'fields', items: [
-      { type: 'iconseg', path: 'logo.align', options: [
-        { value: 'left', icon: ALIGN_ICONS.left, title: 'Align left' },
-        { value: 'center', icon: ALIGN_ICONS.center, title: 'Align centre' },
-        { value: 'right', icon: ALIGN_ICONS.right, title: 'Align right' } ] },
-      { type: 'iconseg', path: 'logo.valign', options: [
-        { value: 'top', icon: VALIGN_ICONS.top, title: 'Align top' },
-        { value: 'middle', icon: VALIGN_ICONS.middle, title: 'Align middle' },
-        { value: 'bottom', icon: VALIGN_ICONS.bottom, title: 'Align bottom' } ] },
+      // These move the mark on the canvas rather than describe how it hangs off its own point.
+      { type: 'iconseg', get: s => snapX(s.logo),
+        onSet: v => patch({ logo: { align: v, x: v === 'left' ? 0 : v === 'center' ? 0.5 : 1 } }),
+        options: [
+          { value: 'left', icon: SNAP_X.left, title: 'Align to the left edge' },
+          { value: 'center', icon: SNAP_X.center, title: 'Centre horizontally' },
+          { value: 'right', icon: SNAP_X.right, title: 'Align to the right edge' } ] },
+      { type: 'iconseg', get: s => snapY(s.logo),
+        onSet: v => patch({ logo: { valign: v, y: v === 'top' ? 0 : v === 'middle' ? 0.5 : 1 } }),
+        options: [
+          { value: 'top', icon: SNAP_Y.top, title: 'Align to the top edge' },
+          { value: 'middle', icon: SNAP_Y.middle, title: 'Centre vertically' },
+          { value: 'bottom', icon: SNAP_Y.bottom, title: 'Align to the bottom edge' } ] },
     ] },
     { type: 'sublabel', text: 'Position' },
     { type: 'fields', items: [
