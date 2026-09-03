@@ -1,5 +1,5 @@
 // SVG exporter: same scene model as the canvas renderer, serialised as vector paths.
-import { buildBeams, ribbonPolygon, stripeRanges, ribbonQuads, coreStops, visibleSpan } from './geometry.js';
+import { buildBeams, ribbonPolygon, stripeRanges, carveCentre, ribbonQuads, coreStops, visibleSpan } from './geometry.js';
 import { layoutText, getImage, logoBox, textSplit, FALLBACK_STACK, layerVars, cssWeight } from './paint.js';
 import { fontFaceCSS, variationCSS } from './fonts.js';
 import { esc } from './util.js';
@@ -35,7 +35,8 @@ export function buildSVG(state, time = 0) {
       defs.push(`<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${num(a.x)}" y1="${num(a.y)}" x2="${num(z.x)}" y2="${num(z.y)}">` +
         st.stops.map(s => `<stop offset="${num(s.pos * 100)}%" stop-color="${s.color}"/>`).join('') + '</linearGradient>');
       const stroke = f.edge > 0 ? ` stroke="${f.edgeColor}" stroke-width="${num(f.edge * m / 1000)}" stroke-linejoin="round"` : '';
-      into.push(`<path d="${pathOf(ribbonPolygon(b.pts, b.widths, ranges[j][0], ranges[j][1]))}" fill="url(#${id})"${stroke}/>`);
+      for (const [lo, hi] of carveCentre(ranges[j], f.centreSeam))
+        into.push(`<path d="${pathOf(ribbonPolygon(b.pts, b.widths, lo, hi))}" fill="url(#${id})"${stroke}/>`);
     });
   });
   // The lit centreline: one gradient per length-wise quad, running edge to edge.

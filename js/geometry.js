@@ -95,8 +95,9 @@ export function buildBeams(state, time = 0) {
   const pack = clamp(s.pack ?? 0, 0, 1);
   const gap = 1 - pack;
   const spacing = tgt => (n > 1 ? tgt / (n - 1) : m * s.baseWidth);
+  const varyOf = i => Math.max(0.15, 1 + J[i].w * 2 * s.widthVariation * gap);
   const widthOf = (i, packed) => {
-    const base = m * s.baseWidth * Math.max(0.15, 1 + J[i].w * 2 * s.widthVariation * gap);
+    const base = m * s.baseWidth * varyOf(i);
     return packed == null ? base : lerp(base, packed, pack);
   };
 
@@ -135,23 +136,32 @@ export function buildBeams(state, time = 0) {
   switch (s.template) {
     case 'rays': {
       const span = s.span * Math.PI / 180;
-      // The width profile stays pegged to a fixed reference length, so flare keeps its meaning
-      // however far the ray actually has to be drawn to clear the frame.
+      // A stroke is described by its two ends — the width at the focus and the width out at the
+      // edge — with a curve between, rather than by a flare piled on top of a base width. Both
+      // are pegged to a fixed reference length, so they keep their meaning however far the ray
+      // actually has to run to clear the frame.
       const lenRef = diag * 1.6;
       const len = Math.max(lenRef, reach * 1.1), N = 40;
-      // Neighbours are span/(n-1) apart, so at distance d they are d*span/(n-1) apart.
-      // A flare that grows at exactly that rate leaves no wedge of background between them.
-      const flare = lerp(s.flare, n > 1 ? lenRef * span / ((n - 1) * m) : s.flare, pack);
-      const flareCurve = lerp(s.flareCurve, 1, pack);
+      // Neighbours are span/(n-1) apart, so at lenRef they are lenRef*span/(n-1) apart: an outer
+      // edge exactly that wide leaves no wedge of background between them, and the stroke has to
+      // start from nothing at the focus for the fan to close up all the way in.
+      const outer = lerp(m * s.outerWidth, n > 1 ? lenRef * span / (n - 1) : m * s.outerWidth, pack);
+      const curve = lerp(s.edgeCurve, 1, pack);
       for (let i = 0; i < n; i++) {
         const a = ang - span / 2 + span * frac(i) + J[i].a * s.jitter * gap * span / Math.max(2, n - 1);
         const d = { x: Math.cos(a), y: Math.sin(a) };
         const t0 = s.twoSided ? -1 : 0;
+        const w0 = m * s.baseWidth * varyOf(i) * gap, w1 = outer * varyOf(i);
+        // Warp combs the fan: strokes bow away from its axis, the outer ones most, and none of
+        // it at the focus so they still converge to a point.
+        const bow = s.warp * m * (frac(i) - 0.5) * 2;
         const pts = [], widths = [];
         for (let k = 0; k <= N; k++) {
           const t = lerp(t0, 1, k / N);
-          pts.push({ x: anchor.x + d.x * t * len, y: anchor.y + d.y * t * len });
-          widths.push(widthOf(i) + m * flare * Math.pow(Math.abs(t) * len / lenRef, flareCurve));
+          const u = clamp(Math.abs(t) * len / lenRef, 0, 1);
+          const off = bow * Math.pow(u, 1.6);
+          pts.push({ x: anchor.x + d.x * t * len - d.y * off, y: anchor.y + d.y * t * len + d.x * off });
+          widths.push(lerp(w0, w1, Math.pow(u, curve)));
         }
         push(i, pts, widths);
       }
@@ -300,6 +310,19 @@ export function stripeRanges(count, seam) {
   for (let j = 0; j < count; j++) {
     out.push([-0.5 + j / count + g / 2, -0.5 + (j + 1) / count - g / 2]);
   }
+  return out;
+}
+
+// One stripe's range with a gap taken out of the stroke's centreline. Returns the one or two
+// pieces that survive, so a stripe keeps its own colour on both sides of the seam.
+export function carveCentre([lo, hi], centre) {
+  const c = clamp(centre || 0, 0, 0.98);
+  if (!c) return [[lo, hi]];
+  const a = -c / 2, b = c / 2;
+  if (hi <= a || lo >= b) return [[lo, hi]];
+  const out = [];
+  if (lo < a) out.push([lo, a]);
+  if (hi > b) out.push([b, hi]);
   return out;
 }
 

@@ -19,12 +19,12 @@ export const SIZE_PRESETS = [
   { id: 'custom',  label: 'Custom',                          w: 1600, h: 1000 },
 ];
 
-// Each pattern carries the shape settings that make it read as itself. Width, flare, span and
+// Each pattern carries the shape settings that make it read as itself. Width, outer edge, span and
 // spread mean different things per template, so carrying them across turns a good fan into a
 // pile of wedges — picking a pattern applies its own numbers (and Undo puts yours back).
 export const TEMPLATES = [
   { id: 'rays', label: 'Rays from focus', hint: 'Beams fan out from one point', defaults: {
-    count: 14, baseWidth: 0.012, widthVariation: 0.6, flare: 0.5, flareCurve: 1.6,
+    count: 14, baseWidth: 0.012, widthVariation: 0.6, outerWidth: 0.5, edgeCurve: 1.6, warp: 0,
     focusX: 0.5, focusY: -0.15, angle: 90, span: 70, twoSided: false, jitter: 0.6, pack: 0,
     rotate: 0, scale: 1, offsetX: 0, offsetY: 0,
   } },
@@ -55,7 +55,7 @@ export const MOCKUPS = [
 export const BLENDS = ['normal', 'multiply', 'screen', 'lighten', 'darken'];
 
 export const DEFAULT_STATE = {
-  version: 4,
+  version: 5,
   size: { preset: 'wide', w: 1920, h: 1080 },
   background: BRAND.blue,
   palette: [BRAND.pink, BRAND.green, BRAND.red, BRAND.blue],
@@ -64,8 +64,9 @@ export const DEFAULT_STATE = {
     count: 9,
     baseWidth: 0.09,      // fraction of the short side
     widthVariation: 0.35, // 0..1 random variation of width
-    flare: 0.6,           // rays only: how much wider at the far end
-    flareCurve: 1.4,      // rays only: power curve of the flare
+    outerWidth: 0.6,      // rays: stroke width out at the edge (short-side fraction)
+    edgeCurve: 1.4,       // rays: easing from the stroke width to the outer edge
+    warp: 0,              // rays: how far the outer strokes bow away from the axis
     focusX: 0.5, focusY: 0.5,   // anchor point (focus / crossing / merge)
     angle: -18,           // degrees, main direction
     span: 34,             // degrees of angular spread
@@ -87,6 +88,7 @@ export const DEFAULT_STATE = {
     phase: 0,             // static gradient offset
     stripes: 3,           // stripes mode: sub-bands per beam
     seam: 0.06,           // gap between stripes (fraction of beam width)
+    centreSeam: 0,        // gap carved down the middle of every stroke, splitting it in two
     core: 0,              // brightness of the lit centreline of each beam (0 = flat section)
     coreFocus: 2.2,       // how tightly that brightness is gathered on the centreline
     blend: 'normal',
@@ -128,13 +130,13 @@ export const LOOKS = [
   } },
   { id: 'fan-pink', label: 'Fan · pink poster', swatch: [BRAND.pink, BRAND.red, BRAND.blue, BRAND.green], state: {
     background: BRAND.pink, palette: [BRAND.red, BRAND.blue, BRAND.green, BRAND.pink],
-    shape: { template: 'rays', count: 14, baseWidth: 0.012, flare: 0.5, flareCurve: 1.6, focusX: 0.5, focusY: -0.15, angle: 90, span: 70, twoSided: false, jitter: 0.6, seed: 3, widthVariation: 0.6 },
+    shape: { template: 'rays', count: 14, baseWidth: 0.012, outerWidth: 0.5, edgeCurve: 1.6, focusX: 0.5, focusY: -0.15, angle: 90, span: 70, twoSided: false, jitter: 0.6, seed: 3, widthVariation: 0.6 },
     fill: { mode: 'stripes', stripes: 3, seam: 0.04, blend: 'normal' },
     headline: { text: '20\n25', size: 0.42, lineHeight: 0.84, letterSpacing: -0.02 },
   } },
   { id: 'fan-green', label: 'Fan · green poster', swatch: [BRAND.green, BRAND.pink, BRAND.red, BRAND.blue], state: {
     background: BRAND.green, palette: [BRAND.pink, BRAND.red, BRAND.blue, BRAND.green],
-    shape: { template: 'rays', count: 14, baseWidth: 0.012, flare: 0.5, flareCurve: 1.6, focusX: 0.55, focusY: -0.15, angle: 90, span: 70, twoSided: false, jitter: 0.6, seed: 5, widthVariation: 0.6 },
+    shape: { template: 'rays', count: 14, baseWidth: 0.012, outerWidth: 0.5, edgeCurve: 1.6, focusX: 0.55, focusY: -0.15, angle: 90, span: 70, twoSided: false, jitter: 0.6, seed: 5, widthVariation: 0.6 },
     fill: { mode: 'stripes', stripes: 3, seam: 0.04 },
     headline: { text: '20\n25', size: 0.42, lineHeight: 0.84, letterSpacing: -0.02 },
   } },

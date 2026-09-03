@@ -21,7 +21,7 @@ then visit http://localhost:8765 (ES modules do not run from `file://`).
 - **Colour**: background is the four brand colours plus black and white; the beam palette is
   free and ordered. Solid, gradient or striped beams; blend modes so intersections mix; outline
   strokes.
-- **Core light**: a bright centreline running the length of each beam, brightest in the middle of
+- **Core heat**: a bright centreline running the length of each beam, brightest in the middle of
   the stroke and fading to its edges. Without it a beam is flat in section and reads as coloured
   tape; with it the stroke reads as light. Pair it with a black background — light adds where
   beams cross, so overlaps stay clean instead of averaging toward grey. *Core focus* takes it from
@@ -37,6 +37,11 @@ then visit http://localhost:8765 (ES modules do not run from `file://`).
   anchor.
 - **Woven type**: *Beams behind* says how many ribbons are drawn behind the headline. Put it
   halfway and the type threads through the pattern instead of sitting flatly on top of it.
+- **Comb fan**: rays describe a stroke by its two ends — *Stroke width* at the focus and *Outer
+  edge* out at the rim, with *Edge curve* easing between them — rather than by a flare piled on
+  top of a base width. *Warp* bows the strokes away from the fan's axis, the outer ones most and
+  none of it at the focus, so they still converge to a point. *Centre seam* carves a gap down
+  each stroke's middle, splitting it in two, whatever the fill mode.
 - **Pack**: closes the gaps. Each beam's width grows toward the spacing between its neighbours,
   so they meet edge to edge — a flare that keeps pace with the fan for rays, and for streamers
   the shuffled exits settle into a clean X that stays flush at both edges. Streamers with *Curve*

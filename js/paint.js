@@ -1,5 +1,5 @@
 // Canvas renderer. Draws the asset into a 2D context whose transform maps (0,0)-(W,H).
-import { buildBeams, ribbonPolygon, stripeRanges, ribbonQuads, coreStops, visibleSpan } from './geometry.js';
+import { buildBeams, ribbonPolygon, stripeRanges, carveCentre, ribbonQuads, coreStops, visibleSpan } from './geometry.js';
 import { clamp } from './util.js';
 import { resolveFamily, fontAxes } from './fonts.js';
 
@@ -86,15 +86,17 @@ export function drawBeams(ctx, state, beams) {
   for (const b of beams) {
     const [a, z] = visibleSpan(b.pts, W, H, m * 0.05);
     b.stripes.forEach((st, j) => {
-      const poly = ribbonPolygon(b.pts, b.widths, ranges[j][0], ranges[j][1]);
-      ctx.beginPath();
-      poly.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
-      ctx.closePath();
       const g = ctx.createLinearGradient(a.x, a.y, z.x, z.y);
       st.stops.forEach(s => g.addColorStop(Math.min(1, Math.max(0, s.pos)), s.color));
-      ctx.fillStyle = g;
-      ctx.fill();
-      if (f.edge > 0) { ctx.lineWidth = f.edge * m / 1000; ctx.strokeStyle = f.edgeColor; ctx.lineJoin = 'round'; ctx.stroke(); }
+      for (const [lo, hi] of carveCentre(ranges[j], f.centreSeam)) {
+        const poly = ribbonPolygon(b.pts, b.widths, lo, hi);
+        ctx.beginPath();
+        poly.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+        ctx.closePath();
+        ctx.fillStyle = g;
+        ctx.fill();
+        if (f.edge > 0) { ctx.lineWidth = f.edge * m / 1000; ctx.strokeStyle = f.edgeColor; ctx.lineJoin = 'round'; ctx.stroke(); }
+      }
     });
   }
   ctx.restore();

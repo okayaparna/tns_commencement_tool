@@ -491,11 +491,12 @@ const AXES_GROUP = { controls: [
 
 const SCHEMA = [
   { title: 'Beams', tab: 'design', controls: [
-    { path: 'shape.count', label: 'Beams', type: 'range', min: 1, max: 40, step: 1 },
-    { path: 'shape.baseWidth', label: 'Width', type: 'range', min: 0.002, max: 0.6, step: 0.002, decimals: 3 },
+    { path: 'shape.count', label: 'Count', type: 'range', min: 1, max: 40, step: 1 },
+    { path: 'shape.baseWidth', label: 'Stroke width', type: 'range', min: 0.002, max: 0.6, step: 0.002, decimals: 3 },
     { path: 'shape.widthVariation', label: 'Width vary', type: 'range', min: 0, max: 1, step: 0.01 },
-    { path: 'shape.flare', label: 'Flare', type: 'range', min: 0, max: 1.5, step: 0.01, when: tpl('rays') },
-    { path: 'shape.flareCurve', label: 'Flare curve', type: 'range', min: 0.3, max: 4, step: 0.05, when: tpl('rays') },
+    { path: 'shape.outerWidth', label: 'Outer edge', type: 'range', min: 0, max: 1.5, step: 0.005, decimals: 3, when: tpl('rays') },
+    { path: 'shape.edgeCurve', label: 'Edge curve', type: 'range', min: 0.3, max: 4, step: 0.05, when: tpl('rays') },
+    { path: 'shape.warp', label: 'Warp', type: 'range', min: -1, max: 1, step: 0.01, when: tpl('rays') },
     { path: 'shape.twoSided', label: 'Mirror', type: 'checkbox', when: tpl('rays') },
     { path: 'shape.angle', label: 'Angle', type: 'range', min: -180, max: 180, step: 1 },
     { path: 'shape.span', label: 'Span', type: 'range', min: 0, max: 360, step: 1, when: anyOf('rays', 'weave') },
@@ -522,8 +523,9 @@ const SCHEMA = [
     { path: 'fill.vividness', label: 'Vividness', type: 'range', min: 0, max: 1, step: 0.01, when: s => s.fill.mode !== 'solid' && s.fill.blendSpace !== 'hard' },
     { path: 'fill.phase', label: 'Gradient shift', type: 'range', min: 0, max: 1, step: 0.005, decimals: 3, when: s => s.fill.mode !== 'solid' },
     { path: 'fill.stripes', label: 'Stripes', type: 'range', min: 2, max: 8, step: 1, when: s => s.fill.mode === 'stripes' },
-    { path: 'fill.seam', label: 'Seam gap', type: 'range', min: 0, max: 0.6, step: 0.01, when: s => s.fill.mode === 'stripes' },
-    { path: 'fill.core', label: 'Core light', type: 'range', min: 0, max: 1, step: 0.01 },
+    { path: 'fill.seam', label: 'Seam width', type: 'range', min: 0, max: 0.6, step: 0.01, when: s => s.fill.mode === 'stripes' },
+    { path: 'fill.centreSeam', label: 'Centre seam', type: 'range', min: 0, max: 0.9, step: 0.01 },
+    { path: 'fill.core', label: 'Core heat', type: 'range', min: 0, max: 1, step: 0.01 },
     { path: 'fill.coreFocus', label: 'Core focus', type: 'range', min: 0.6, max: 8, step: 0.1, decimals: 1, when: s => s.fill.core > 0 },
     { path: 'fill.blend', label: 'Blend', type: 'select', options: BLENDS },
     { path: 'fill.opacity', label: 'Opacity', type: 'range', min: 0.05, max: 1, step: 0.01 },
