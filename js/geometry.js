@@ -147,19 +147,6 @@ export function buildBeams(state, time = 0) {
       }
       break;
     }
-    case 'bands': {
-      // Perpendicular extent of the visible region, so bands always span it.
-      const CW = clipRect.x1 - clipRect.x0, CH = clipRect.y1 - clipRect.y0;
-      const ext = Math.abs(CW * dir.y) + Math.abs(CH * dir.x);
-      for (let i = 0; i < n; i++) {
-        const off = (frac(i) - 0.5) * ext * s.spread + J[i].o * s.jitter * ext / n;
-        const w = widthOf(i);
-        const seg = clipToView(local(-diag * 4, off), local(diag * 4, off), w);
-        if (!seg) continue;
-        push(i, sampleLine(seg[0], seg[1], 8), new Array(9).fill(w));
-      }
-      break;
-    }
     case 'streamers': {
       const L = diag * 1.3;
       const order = [...Array(n).keys()].sort((a, b) => J[a].s - J[b].s); // shuffled exits so ribbons cross
@@ -177,40 +164,6 @@ export function buildBeams(state, time = 0) {
             : cubic(M, { x: M.x + k * 0.6, y: M.y }, { x: B.x - k, y: B.y }, B, (t - 0.5) * 2);
           pts.push(local(p.x, p.y));
           widths.push(widthOf(i) * (1 - s.pinch * bell(t, 0.16)));
-        }
-        push(i, pts, widths);
-      }
-      break;
-    }
-    case 'arch': {
-      // Columns run perpendicular to `dir` (angle 0 = vertical columns).
-      const L = diag * 1.2, N = 48;
-      const ext = Math.abs(W * dir.x) + Math.abs(H * dir.y);
-      for (let i = 0; i < n; i++) {
-        const v0 = (frac(i) - 0.5) * ext * s.spread + J[i].o * s.jitter * ext / n * 0.8;
-        const pts = [], widths = [];
-        for (let k = 0; k <= N; k++) {
-          const t = k / N, u = lerp(-L / 2, L / 2, t);
-          const b = bell(t, 0.22);
-          const v = v0 * (1 - s.waist * b);
-          pts.push({ x: anchor.x + v * dir.x - u * dir.y, y: anchor.y + v * dir.y + u * dir.x });
-          widths.push(widthOf(i) * (1 - s.pinch * b));
-        }
-        push(i, pts, widths);
-      }
-      break;
-    }
-    case 'braid': {
-      const L = diag * 1.15, N = 64;
-      for (let i = 0; i < n; i++) {
-        const v0 = (frac(i) - 0.5) * s.spread * m + J[i].o * s.jitter * m * 0.2;
-        const ph = frac(i) * Math.PI + J[i].a * s.jitter * Math.PI;
-        const pts = [], widths = [];
-        for (let k = 0; k <= N; k++) {
-          const t = k / N, u = lerp(-L / 2, L / 2, t);
-          const v = v0 + Math.sin(t * s.waves * TAU + ph) * s.wave * m;
-          pts.push(local(u, v));
-          widths.push(widthOf(i));
         }
         push(i, pts, widths);
       }

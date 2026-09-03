@@ -21,9 +21,6 @@ export const TEMPLATES = [
   { id: 'rays',      label: 'Rays from focus', hint: 'Beams radiate from one point' },
   { id: 'weave',     label: 'Weave',           hint: 'Straight streamers crossing' },
   { id: 'streamers', label: 'Streamers',       hint: 'Curved ribbons merging' },
-  { id: 'arch',      label: 'Waist arch',      hint: 'Columns pinched at the waist' },
-  { id: 'bands',     label: 'Bands',           hint: 'Parallel gradient bands' },
-  { id: 'braid',     label: 'Braid',           hint: 'Sine-woven ribbons' },
 ];
 
 export const MOCKUPS = [
@@ -53,13 +50,10 @@ export const DEFAULT_STATE = {
     focusX: 0.5, focusY: 0.5,   // anchor point (focus / crossing / merge)
     angle: -18,           // degrees, main direction
     span: 34,             // degrees of angular spread
-    spread: 0.9,          // perpendicular spread of beams (weave/streamers/bands)
+    spread: 0.9,          // perpendicular spread of beams (weave / streamers)
     twoSided: true,       // rays: extend through the focus both ways
-    pinch: 0.35,          // streamers / arch: narrowing at the merge point (0..1)
+    pinch: 0.35,          // streamers: narrowing at the merge point (0..1)
     tension: 0.45,        // streamers: curve tension
-    waist: 0.35,          // arch: how much columns pull inward at the waist
-    wave: 0.25,           // braid: amplitude
-    waves: 1.5,           // braid: cycles across
     jitter: 0.5,          // 0..1 randomness in angle / offset
     seed: 7,
     rotate: 0, scale: 1, offsetX: 0, offsetY: 0,
@@ -87,7 +81,8 @@ export const DEFAULT_STATE = {
     fps: 30,
   },
   headline: {
-    enabled: true, text: '2025', font: 'Helvetica Neue', weight: '500',
+    enabled: true, text: '2025', font: 'Neue Display Next Variable', weight: '800',
+    wdth: 100, slnt: 0,   // variable-font axes (ignored by static fonts)
     size: 0.62,           // fraction of asset height
     letterSpacing: -0.04, // em
     lineHeight: 0.86,
@@ -95,7 +90,8 @@ export const DEFAULT_STATE = {
     behind: false, rotate: 0,
   },
   caption: {
-    enabled: false, text: 'EIGHTY-NINTH ANNUAL UNIVERSITY COMMENCEMENT CEREMONY\nBARCLAYS CENTER, BROOKLYN, NEW YORK · MAY 16', font: 'Helvetica Neue', weight: '500',
+    enabled: false, text: 'EIGHTY-NINTH ANNUAL UNIVERSITY COMMENCEMENT CEREMONY\nBARCLAYS CENTER, BROOKLYN, NEW YORK · MAY 16', font: 'Neue Display Next Medium', weight: '500',
+    wdth: 100, slnt: 0,
     size: 0.028, letterSpacing: 0.02, lineHeight: 1.35,
     color: BRAND.white, x: 0.04, y: 0.95, align: 'left', valign: 'bottom', behind: false, rotate: 0,
   },
@@ -140,15 +136,5 @@ export const LOOKS = [
     shape: { template: 'weave', count: 12, baseWidth: 0.16, angle: -12, span: 26, spread: 1.2, jitter: 0.5, seed: 9 },
     fill: { mode: 'gradient' }, headline: { text: '2025', size: 0.8, letterSpacing: -0.03 },
     mockup: { id: 'arena' },
-  } },
-  { id: 'arch', label: 'Waist arch', swatch: [BRAND.red, BRAND.pink, BRAND.blue, BRAND.green], state: {
-    background: BRAND.red, palette: [BRAND.pink, BRAND.blue, BRAND.green, BRAND.white],
-    shape: { template: 'arch', count: 11, baseWidth: 0.05, waist: 0.6, pinch: 0.4, focusX: 0.5, focusY: 0.5, spread: 1, jitter: 0.2, seed: 4 },
-    fill: { mode: 'gradient', runSpread: 1 }, headline: { text: '2025', size: 0.46 },
-  } },
-  { id: 'braid', label: 'Braid', swatch: [BRAND.green, BRAND.blue, BRAND.pink, BRAND.red], state: {
-    background: BRAND.green, palette: [BRAND.blue, BRAND.pink, BRAND.red, BRAND.white],
-    shape: { template: 'braid', count: 7, baseWidth: 0.06, wave: 0.3, waves: 1.2, angle: 0, spread: 0.8, jitter: 0.5, seed: 2 },
-    fill: { mode: 'gradient', runSpread: 2 }, headline: { text: '2025', size: 0.5 },
   } },
 ];

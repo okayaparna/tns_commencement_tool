@@ -1,1 +1,6 @@
-[]
+[
+  { "name": "Neue Display Next Variable", "file": "NeueDisplayNextVariable.ttf" },
+  { "name": "Neue Display Next Heavy",    "file": "NeueDisplayNextNormal-Heavy.otf" },
+  { "name": "Neue Display Next Medium",   "file": "NeueDisplayNextNormal-Medium.otf" },
+  { "name": "Neue",                       "file": "Neue-Regular.otf" }
+]

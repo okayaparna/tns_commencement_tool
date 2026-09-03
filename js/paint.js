@@ -1,8 +1,15 @@
 // Canvas renderer. Draws the asset into a 2D context whose transform maps (0,0)-(W,H).
 import { buildBeams, ribbonPolygon, stripeRanges } from './geometry.js';
+import { resolveFamily, fontAxes } from './fonts.js';
 
 export const FALLBACK_STACK = '"Helvetica Neue", Helvetica, Arial, sans-serif';
-export const fontString = (layer, px) => `${layer.weight} ${px}px "${layer.font}", ${FALLBACK_STACK}`;
+// Variable axes a text layer can carry. Weight doubles as the CSS font-weight for static fonts.
+export const layerVars = layer => ({ wght: Number(layer.weight) || 400, wdth: layer.wdth, slnt: layer.slnt });
+// A variable font bakes its weight into the axis, so the CSS weight must stay neutral —
+// asking a 400-weight face for 800 makes the browser synthesise bold on top of it.
+export const cssWeight = layer => (fontAxes(layer.font) ? 400 : (Number(layer.weight) || 400));
+export const fontString = (layer, px) =>
+  `${cssWeight(layer)} ${px}px "${resolveFamily(layer.font, layerVars(layer))}", ${FALLBACK_STACK}`;
 
 // Shared text layout so canvas and SVG agree.
 export function layoutText(layer, W, H) {

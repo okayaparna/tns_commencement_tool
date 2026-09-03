@@ -14,7 +14,7 @@ then visit http://localhost:8765 (ES modules do not run from `file://`).
 
 ## What you can do
 
-- **Patterns**: rays from a focus point, weave, streamers (curved merge), waist arch, bands, braid.
+- **Patterns**: rays from a focus point, weave, and streamers (curved ribbons merging).
 - **Colour**: background + ordered beam palette; solid, gradient or striped beams; blend modes
   (multiply / screen / …) so intersections mix; outline strokes.
 - **Transition**: how colours change along a beam — *Smooth* (OKLab, keeps chroma up),
@@ -27,12 +27,18 @@ then visit http://localhost:8765 (ES modules do not run from `file://`).
 - **Motion**: colour run, sway, anchor drift; "fit duration to a seamless loop".
 - **Export**: PNG (0.5× / 1× / 2×), SVG (vector, fonts embedded when uploaded), video
   (MP4 in Chrome 126+ / Safari, WebM elsewhere), and JSON presets.
-- **Fonts**: upload .otf/.ttf/.woff in the Fonts panel, or place files in `fonts/` and list them in
-  `fonts/fonts.json`:
+- **Type**: the four brand faces load automatically from `fonts/`. Neue Display Next Variable is a
+  variable font, so the Headline and Caption panels expose live **Weight** (100-900), **Width**
+  (50-200, Compressed through Extended) and **Slant** (0 to -20) sliders, with one-click width presets.
+- **Fonts**: to add more, upload .otf/.ttf/.woff in the Fonts panel, or drop files in `fonts/` and
+  list them in `fonts/fonts.json`:
 
 ```json
-[{ "name": "Neue Haas Grotesk Display", "file": "NHaasGroteskDSPro-55Rg.otf" }]
+[{ "name": "Neue Display Next Variable", "file": "NeueDisplayNextVariable.ttf" }]
 ```
+
+Font files themselves are gitignored, since they are licensed. They live in `fonts/` locally and
+load at runtime. Anyone else cloning this repo needs to copy them in separately.
 
 Keyboard: `Space` play/pause, `R` shuffle seed, `G` guides, `⌘Z` undo.
 

@@ -1,7 +1,7 @@
 // SVG exporter: same scene model as the canvas renderer, serialised as vector paths.
 import { buildBeams, ribbonPolygon, stripeRanges } from './geometry.js';
-import { layoutText, getImage, logoBox, FALLBACK_STACK } from './paint.js';
-import { fontFaceCSS } from './fonts.js';
+import { layoutText, getImage, logoBox, FALLBACK_STACK, layerVars, cssWeight } from './paint.js';
+import { fontFaceCSS, variationCSS } from './fonts.js';
 import { esc } from './util.js';
 
 const num = v => Number(v.toFixed(2));
@@ -13,7 +13,10 @@ function textSVG(layer, W, H) {
   const anchor = { left: 'start', center: 'middle', right: 'end' }[layer.align];
   const tf = layer.rotate ? ` transform="rotate(${layer.rotate} ${num(L.anchorX)} ${num(L.anchorY)})"` : '';
   const spans = L.lines.map((line, i) => `<tspan x="${num(L.x)}" y="${num(L.baselines[i])}">${esc(line) || ' '}</tspan>`).join('');
-  return `<text font-family="&quot;${esc(layer.font)}&quot;, ${esc(FALLBACK_STACK)}" font-weight="${esc(layer.weight)}" font-size="${num(L.px)}" letter-spacing="${num(L.ls)}" text-anchor="${anchor}" fill="${layer.color}"${tf}>${spans}</text>`;
+  // Variable axes travel as a CSS style; the base face is embedded via @font-face.
+  const vars = variationCSS(layer.font, layerVars(layer));
+  const style = vars ? ` style="font-variation-settings:${esc(vars)}"` : '';
+  return `<text font-family="&quot;${esc(layer.font)}&quot;, ${esc(FALLBACK_STACK)}" font-weight="${cssWeight(layer)}" font-size="${num(L.px)}" letter-spacing="${num(L.ls)}" text-anchor="${anchor}" fill="${layer.color}"${style}${tf}>${spans}</text>`;
 }
 
 export function buildSVG(state, time = 0) {

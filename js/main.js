@@ -5,7 +5,7 @@ import { anchorPoint } from './geometry.js';
 import { drawMockup } from './mockups.js';
 import { exportPNG, exportSVG, exportVideo, exportJSON, videoMime } from './export.js';
 import { buildControls, getPath, setPath } from './ui.js';
-import { fontNames, registerFontFile, loadProjectFonts, restoreFonts, onFontsChanged, customFont, removeFont } from './fonts.js';
+import { fontNames, registerFontFile, loadProjectFonts, restoreFonts, onFontsChanged, customFont, removeFont, hasAxis, axisRange } from './fonts.js';
 
 const $ = s => document.querySelector(s);
 const STORAGE = 'tns-studio-state-v1';
@@ -174,9 +174,6 @@ const TPL_ICONS = {
   rays: '<path d="M4 30 L17 4 M10 30 L17 4 M17 30 L17 4 M24 30 L17 4 M30 30 L17 4"/>',
   weave: '<path d="M2 12 L32 20 M2 22 L32 14 M2 17 L32 17"/>',
   streamers: '<path d="M2 8 C 12 8, 12 17, 17 17 S 22 26, 32 26 M2 26 C 12 26, 12 17, 17 17 S 22 8, 32 8"/>',
-  arch: '<path d="M8 2 C 8 12, 12 12, 12 17 S 8 22, 8 32 M17 2 V32 M26 2 C 26 12, 22 12, 22 17 S 26 22, 26 32"/>',
-  bands: '<path d="M2 8 H32 M2 17 H32 M2 26 H32"/>',
-  braid: '<path d="M2 12 C 10 12, 10 22, 17 22 S 24 12, 32 12 M2 22 C 10 22, 10 12, 17 12 S 24 22, 32 22"/>',
 };
 function buildLeft() {
   const looks = $('#looks'); looks.innerHTML = '';
@@ -248,7 +245,17 @@ const textGroup = (key, title, collapsed) => ({
     { path: `${key}.enabled`, label: 'Show', type: 'checkbox' },
     { path: `${key}.text`, label: '', type: 'textarea', rows: key === 'headline' ? 2 : 3, placeholder: 'Text (new lines allowed)' },
     { path: `${key}.font`, label: 'Font', type: 'select', options: () => fontNames() },
-    { path: `${key}.weight`, label: 'Weight', type: 'select', options: ['300', '400', '500', '600', '700', '800'] },
+    { path: `${key}.weight`, label: 'Weight', type: 'range', min: 100, max: 900, step: 10, decimals: 0 },
+    { path: `${key}.wdth`, label: 'Width', type: 'range', min: 50, max: 200, step: 1, decimals: 0, when: s => hasAxis(s[key].font, 'wdth') },
+    { path: `${key}.slnt`, label: 'Slant', type: 'range', min: -20, max: 0, step: 0.5, decimals: 1, when: s => hasAxis(s[key].font, 'slnt') },
+    { label: 'Width preset', type: 'buttons', wide: true, when: s => hasAxis(s[key].font, 'wdth'), buttons: [
+      { label: 'Comp', onClick: () => set(`${key}.wdth`, 50) },
+      { label: 'Cond', onClick: () => set(`${key}.wdth`, 75) },
+      { label: 'Norm', onClick: () => set(`${key}.wdth`, 100) },
+      { label: 'Wide', onClick: () => set(`${key}.wdth`, 125) },
+      { label: 'Ultra', onClick: () => set(`${key}.wdth`, 150) },
+      { label: 'Ext', onClick: () => set(`${key}.wdth`, 200) },
+    ] },
     { path: `${key}.size`, label: 'Size', type: 'range', min: 0.01, max: key === 'headline' ? 1.4 : 0.2, step: 0.005, decimals: 3 },
     { path: `${key}.letterSpacing`, label: 'Tracking', type: 'range', min: -0.15, max: 0.4, step: 0.005, decimals: 3 },
     { path: `${key}.lineHeight`, label: 'Line height', type: 'range', min: 0.6, max: 2, step: 0.01 },
@@ -259,7 +266,7 @@ const textGroup = (key, title, collapsed) => ({
     { path: `${key}.y`, label: 'Y', type: 'range', min: -0.2, max: 1.2, step: 0.005, decimals: 3 },
     { path: `${key}.rotate`, label: 'Rotate', type: 'range', min: -90, max: 90, step: 1 },
     { path: `${key}.behind`, label: 'Behind beams', type: 'checkbox' },
-    { label: 'Quick place', type: 'buttons', buttons: [
+    { label: 'Quick place', type: 'buttons', wide: true, buttons: [
       { label: 'Centre', onClick: () => patch({ [key]: { x: 0.5, y: 0.5, align: 'center', valign: 'middle' } }) },
       { label: 'Top-left', onClick: () => patch({ [key]: { x: 0.05, y: 0.06, align: 'left', valign: 'top' } }) },
       { label: 'Bottom-left', onClick: () => patch({ [key]: { x: 0.05, y: 0.94, align: 'left', valign: 'bottom' } }) },
@@ -277,12 +284,9 @@ const SCHEMA = [
     { path: 'shape.twoSided', label: 'Through focus', type: 'checkbox', when: tpl('rays') },
     { path: 'shape.angle', label: 'Angle', type: 'range', min: -180, max: 180, step: 1 },
     { path: 'shape.span', label: 'Span', type: 'range', min: 0, max: 360, step: 1, when: anyOf('rays', 'weave') },
-    { path: 'shape.spread', label: 'Spread', type: 'range', min: 0, max: 2.5, step: 0.01, when: anyOf('weave', 'streamers', 'arch', 'bands', 'braid') },
-    { path: 'shape.pinch', label: 'Pinch', type: 'range', min: 0, max: 0.95, step: 0.01, when: anyOf('streamers', 'arch') },
+    { path: 'shape.spread', label: 'Spread', type: 'range', min: 0, max: 2.5, step: 0.01, when: anyOf('weave', 'streamers') },
+    { path: 'shape.pinch', label: 'Pinch', type: 'range', min: 0, max: 0.95, step: 0.01, when: tpl('streamers') },
     { path: 'shape.tension', label: 'Tension', type: 'range', min: 0.05, max: 1, step: 0.01, when: tpl('streamers') },
-    { path: 'shape.waist', label: 'Waist', type: 'range', min: -1, max: 1, step: 0.01, when: tpl('arch') },
-    { path: 'shape.wave', label: 'Wave', type: 'range', min: 0, max: 1, step: 0.01, when: tpl('braid') },
-    { path: 'shape.waves', label: 'Cycles', type: 'range', min: 0.25, max: 6, step: 0.05, when: tpl('braid') },
     { path: 'shape.focusX', label: 'Anchor X', type: 'range', min: -0.5, max: 1.5, step: 0.005, decimals: 3 },
     { path: 'shape.focusY', label: 'Anchor Y', type: 'range', min: -0.5, max: 1.5, step: 0.005, decimals: 3 },
     { path: 'shape.jitter', label: 'Jitter', type: 'range', min: 0, max: 1, step: 0.01 },
@@ -313,7 +317,7 @@ const SCHEMA = [
     { path: 'motion.drift', label: 'Anchor drift', type: 'range', min: 0, max: 1, step: 0.01 },
     { path: 'motion.duration', label: 'Video secs', type: 'range', min: 1, max: 60, step: 0.5, decimals: 1 },
     { path: 'motion.fps', label: 'Video fps', type: 'select', options: ['24', '30', '60'], number: true },
-    { label: 'Loop', type: 'buttons', buttons: [
+    { label: 'Loop', type: 'buttons', wide: true, buttons: [
       { label: 'Fit duration to a seamless loop', onClick: () => { const sp = Math.abs(state.motion.speed) || 0.25; const one = 1 / sp; const n = Math.max(1, Math.round(state.motion.duration / one)); set('motion.duration', +(n * one).toFixed(2)); toast(`Duration set to ${(n * one).toFixed(2)} s (${n} colour loop${n > 1 ? 's' : ''})`); } },
     ] },
   ] },

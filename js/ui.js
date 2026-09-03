@@ -21,7 +21,7 @@ export function buildControls(container, groups, ctx) {
     container.appendChild(box);
     const visibility = [];
     for (const c of g.controls) {
-      const row = el('div', 'ctrl' + (c.type === 'textarea' || c.type === 'seg' && c.wide ? ' wide' : ''));
+      const row = el('div', 'ctrl' + (c.wide || c.type === 'textarea' ? ' wide' : ''));
       if (c.type !== 'textarea' || c.label) row.appendChild(el('label', null, c.label));
       const input = makeInput(c, ctx);
       row.appendChild(input.node);
