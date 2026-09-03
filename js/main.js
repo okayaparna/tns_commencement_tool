@@ -44,6 +44,7 @@ const ctx = canvas.getContext('2d');
 let view = { m: null, inv: null, s: 1, dpr: 1 };
 const setView = m => { view.m = m; view.inv = m.inverse(); view.s = Math.hypot(m.a, m.b); };
 let time = 0, lastT = null, raf = null, needsRender = true;
+let lastMockup = null, mockupAt = 0;   // drives the mockup's entrance
 
 function resize() {
   const r = stage.getBoundingClientRect();
@@ -69,15 +70,22 @@ function draw() {
   ctx.clearRect(0, 0, cw, ch);
   const mk = MOCKUPS.find(m => m.id === state.mockup.id);
   const pad = 28 * dpr;
+  // Tracked against the chosen mockup, not the branch, so leaving and coming back replays it.
+  if (state.mockup.id !== lastMockup) { lastMockup = state.mockup.id; mockupAt = performance.now(); }
+  const enter = Math.min(1, (performance.now() - mockupAt) / 600);
   if (mk && mk.ratio) {
     let w = cw - pad * 2, h = w / mk.ratio;
     if (h > ch - pad * 2) { h = ch - pad * 2; w = h * mk.ratio; }
     const x = (cw - w) / 2, y = (ch - h) / 2;
     const asset = renderAssetToCanvas(state, time, Math.min(2000, Math.max(w, h) * 1.2), { onImageLoad: requestRender });
     const off = document.createElement('canvas'); off.width = Math.round(w); off.height = Math.round(h);
-    const place = drawMockup(off.getContext('2d'), mk.id, off.width, off.height, asset, state);
-    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.25)'; ctx.shadowBlur = 30 * dpr; ctx.shadowOffsetY = 10 * dpr; ctx.fillStyle = '#000'; ctx.fillRect(x, y, w, h); ctx.restore();
+    const place = drawMockup(off.getContext('2d'), mk.id, off.width, off.height, asset, state, enter);
+    // A bare mockup sits straight on the stage, so it gets no card behind it.
+    if (!mk.bare) {
+      ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.25)'; ctx.shadowBlur = 30 * dpr; ctx.shadowOffsetY = 10 * dpr; ctx.fillStyle = '#000'; ctx.fillRect(x, y, w, h); ctx.restore();
+    }
     ctx.drawImage(off, x, y);
+    if (enter < 1) requestRender();
     if (place) {
       setView(new DOMMatrix().translate(x, y).multiply(place.matrix)
         .translate(place.dx, place.dy).scale(place.dw / state.size.w, place.dh / state.size.h));
@@ -485,7 +493,7 @@ const SCHEMA = [
     { path: 'shape.widthVariation', label: 'Width vary', type: 'range', min: 0, max: 1, step: 0.01 },
     { path: 'shape.flare', label: 'Flare', type: 'range', min: 0, max: 1.5, step: 0.01, when: tpl('rays') },
     { path: 'shape.flareCurve', label: 'Flare curve', type: 'range', min: 0.3, max: 4, step: 0.05, when: tpl('rays') },
-    { path: 'shape.twoSided', label: 'Through focus', type: 'checkbox', when: tpl('rays') },
+    { path: 'shape.twoSided', label: 'Mirror', type: 'checkbox', when: tpl('rays') },
     { path: 'shape.angle', label: 'Angle', type: 'range', min: -180, max: 180, step: 1 },
     { path: 'shape.span', label: 'Span', type: 'range', min: 0, max: 360, step: 1, when: anyOf('rays', 'weave') },
     { path: 'shape.spread', label: 'Spread', type: 'range', min: 0, max: 2.5, step: 0.01, when: anyOf('weave', 'streamers') },
@@ -643,7 +651,12 @@ buildLeft();
   $('#video-format').textContent = m ? (m.startsWith('video/mp4') ? '→ MP4' : '→ WebM (no MP4 in this browser)') : 'video unsupported';
 }
 onFontsChanged(() => { controls.refresh(); requestRender(); });
-(async () => { await loadProjectFonts(); document.fonts.ready.then(requestRender); })();
+(async () => {
+  await loadProjectFonts();
+  document.fonts.ready.then(requestRender);
+  // The mockup chrome is drawn in Material Symbols; redraw once it is available.
+  try { await document.fonts.load('300 24px "Material Symbols Rounded"', 'favorite'); requestRender(); } catch (_) {}
+})();
 syncUI(); resize();
 // Debug handle: state plus a synchronous redraw, so the stage can be inspected without
 // waiting on requestAnimationFrame (which a hidden tab never fires).

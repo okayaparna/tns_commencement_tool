@@ -19,7 +19,7 @@ function cover(ctx, img, x, y, w, h, r = 0) {
   ctx.save(); rrect(ctx, x, y, w, h, r); ctx.clip();
   const dx = x + (w - dw) / 2, dy = y + (h - dh) / 2;
   // Record the full transform in force, so a rotated mockup inverts correctly too.
-  placement = { matrix: ctx.getTransform(), dx, dy, dw, dh };
+  if (!placement) placement = { matrix: ctx.getTransform(), dx, dy, dw, dh };
   ctx.drawImage(img, dx, dy, dw, dh);
   ctx.restore();
 }
@@ -52,6 +52,27 @@ function arcText(ctx, text, cx, cy, rx, ry, startDeg, endDeg) {
 }
 
 const UI = '"Helvetica Neue", Helvetica, Arial, sans-serif';
+const MS = '"Material Symbols Rounded"';
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const easeOut = t => 1 - (1 - t) ** 3;
+
+// Material Symbols is a ligature font: the icon's name shapes into a single glyph, which
+// canvas does apply. If it has not loaded we fall back to the hand-drawn outlines below.
+const hasSymbols = () => { try { return document.fonts.check(`300 24px ${MS}`); } catch (_) { return false; } };
+function icon(ctx, name, x, y, size, color, fallback) {
+  if (!hasSymbols()) { if (fallback) { ctx.strokeStyle = color; fallback(ctx, x, y, size * 0.4); } return; }
+  ctx.save();
+  ctx.font = `300 ${size}px ${MS}`;
+  ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(name, x, y);
+  ctx.restore();
+}
+
+const RATIOS = [[1, 1], [4, 5], [5, 4], [3, 2], [2, 3], [16, 9], [9, 16], [16, 10], [3, 4], [4, 3]];
+function ratioLabel(ar) {
+  for (const [a, b] of RATIOS) if (Math.abs(ar - a / b) < 0.02) return `${a}:${b}`;
+  return `${ar.toFixed(2)}:1`;
+}
 
 // Outline glyphs for the social chrome, sized by a half-height `k`.
 function heart(ctx, x, y, k) {
@@ -202,9 +223,7 @@ R.phone = (ctx, W, H, img, state) => {
   ctx.font = `600 ${sw * 0.036}px ${UI}`; ctx.fillText('thenewschool', sx + pad + sw * 0.105, ay);
   ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.font = `400 ${sw * 0.032}px ${UI}`;
   ctx.fillText('2h', sx + pad + sw * 0.105 + ctx.measureText('thenewschool').width * 1.35, ay);
-  ctx.strokeStyle = '#fff'; ctx.lineWidth = sw * 0.008; ctx.lineCap = 'round';
-  const cxx = sx + sw - pad - sw * 0.02, k = sw * 0.022;
-  ctx.beginPath(); ctx.moveTo(cxx - k, ay - k); ctx.lineTo(cxx + k, ay + k); ctx.moveTo(cxx + k, ay - k); ctx.lineTo(cxx - k, ay + k); ctx.stroke();
+  icon(ctx, 'close', sx + sw - pad - sw * 0.02, ay, sw * 0.075, '#fff');
 
   // reply bar: input pill, heart, share
   const by = sy + sh - sw * 0.115;
@@ -213,9 +232,9 @@ R.phone = (ctx, W, H, img, state) => {
   rrect(ctx, sx + pad, by - sw * 0.048, pillW, sw * 0.096, sw * 0.048); ctx.stroke();
   ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.font = `400 ${sw * 0.034}px ${UI}`; ctx.textAlign = 'left';
   ctx.fillText('Send message', sx + pad + sw * 0.05, by);
-  ctx.strokeStyle = '#fff'; ctx.lineWidth = sw * 0.007;
-  heart(ctx, sx + pad + pillW + sw * 0.055, by, sw * 0.033);
-  plane(ctx, sx + pad + pillW + sw * 0.155, by, sw * 0.033);
+  ctx.lineWidth = sw * 0.007;
+  icon(ctx, 'favorite', sx + pad + pillW + sw * 0.055, by, sw * 0.082, '#fff', heart);
+  icon(ctx, 'send', sx + pad + pillW + sw * 0.155, by, sw * 0.082, '#fff', plane);
   ctx.restore();
 
   // hardware: island and home indicator
@@ -223,41 +242,53 @@ R.phone = (ctx, W, H, img, state) => {
   ctx.fillStyle = 'rgba(255,255,255,0.9)'; rrect(ctx, W / 2 - pw * 0.18, py + ph - b * 2.2, pw * 0.36, pw * 0.014, pw * 0.01); ctx.fill();
 };
 
-R.social = (ctx, W, H, img, state) => {
-  ctx.fillStyle = '#f3f3f4'; ctx.fillRect(0, 0, W, H);
-  // Instagram crops a post into its allowed range rather than forcing a square, so a story-
-  // shaped asset loses a sliver instead of half its height.
-  const ar = Math.min(1.91, Math.max(0.8, img.width / img.height));
-  const head = 0.115, foot = 0.30;                 // both as a share of the card width
-  const margin = W * 0.05;
-  // Size the card from whichever of width or height runs out first, so it always fits.
-  const cw = Math.min(W - margin * 2, (H - margin * 2) / (head + 1 / ar + foot));
-  const ih = cw / ar, ch = cw * head + ih + cw * foot;
-  const cx = (W - cw) / 2, cy = (H - ch) / 2;
-  const r = cw * 0.022, hh = cw * head;
+// One post card: header, the asset at `ar`, and the action row underneath.
+function postCard(ctx, x, y, cw, ar, img) {
+  const head = cw * 0.115, ih = cw / ar, foot = cw * 0.30, ch = head + ih + foot, r = cw * 0.022;
+  shadow(ctx, x, y, cw, ch, r, cw * 0.05, 0.16, 0.4);
+  ctx.fillStyle = '#fff'; rrect(ctx, x, y, cw, ch, r); ctx.fill();
+  ctx.fillStyle = '#E52A1F'; ctx.beginPath(); ctx.arc(x + head * 0.62, y + head * 0.5, head * 0.3, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.font = `700 ${head * 0.24}px ${UI}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('TNS', x + head * 0.62, y + head * 0.5);
+  ctx.fillStyle = '#111'; ctx.font = `600 ${head * 0.22}px ${UI}`; ctx.textAlign = 'left';
+  ctx.fillText('thenewschool', x + head * 1.08, y + head * 0.4);
+  ctx.fillStyle = '#8e8e93'; ctx.font = `400 ${head * 0.18}px ${UI}`;
+  ctx.fillText('Barclays Center', x + head * 1.08, y + head * 0.66);
+  icon(ctx, 'more_vert', x + cw - head * 0.5, y + head * 0.5, head * 0.44, '#111');
 
-  shadow(ctx, cx, cy, cw, ch, r, W * 0.03, 0.15, 0.4);
-  ctx.fillStyle = '#fff'; rrect(ctx, cx, cy, cw, ch, r); ctx.fill();
-  // header
-  ctx.fillStyle = '#E52A1F'; ctx.beginPath(); ctx.arc(cx + hh * 0.62, cy + hh * 0.5, hh * 0.3, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#fff'; ctx.font = `700 ${hh * 0.24}px ${UI}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('TNS', cx + hh * 0.62, cy + hh * 0.5);
-  ctx.fillStyle = '#111'; ctx.font = `600 ${hh * 0.22}px ${UI}`; ctx.textAlign = 'left';
-  ctx.fillText('thenewschool', cx + hh * 1.08, cy + hh * 0.4);
-  ctx.fillStyle = '#8e8e93'; ctx.font = `400 ${hh * 0.18}px ${UI}`;
-  ctx.fillText('Barclays Center', cx + hh * 1.08, cy + hh * 0.66);
-  ctx.fillStyle = '#111';
-  for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(cx + cw - hh * 0.5, cy + hh * (0.34 + i * 0.16), hh * 0.028, 0, Math.PI * 2); ctx.fill(); }
-  // the asset
-  cover(ctx, img, cx, cy + hh, cw, ih, 0);
-  // footer: action row, likes, caption
-  const fy = cy + hh + ih + cw * 0.075;
-  ctx.strokeStyle = '#111'; ctx.lineWidth = cw * 0.007; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-  heart(ctx, cx + cw * 0.06, fy, cw * 0.03);
-  bubble(ctx, cx + cw * 0.16, fy, cw * 0.03);
-  plane(ctx, cx + cw * 0.26, fy, cw * 0.03);
-  ctx.beginPath(); ctx.rect(cx + cw - cw * 0.085, fy - cw * 0.028, cw * 0.05, cw * 0.058); ctx.stroke();
-  placeholderLines(ctx, cx + cw * 0.06, fy + cw * 0.06, cw * 0.88, 2, cw * 0.055, '#dcdcdc');
+  cover(ctx, img, x, y + head, cw, ih, 0);
+
+  const fy = y + head + ih + cw * 0.075, k = cw * 0.062;
+  ctx.lineWidth = cw * 0.007; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  icon(ctx, 'favorite', x + cw * 0.075, fy, k, '#111', heart);
+  icon(ctx, 'chat_bubble', x + cw * 0.175, fy, k, '#111', bubble);
+  icon(ctx, 'send', x + cw * 0.275, fy, k, '#111', plane);
+  icon(ctx, 'bookmark', x + cw - cw * 0.075, fy, k, '#111');
+  placeholderLines(ctx, x + cw * 0.075, fy + cw * 0.06, cw * 0.85, 2, cw * 0.055, '#e3e3e6');
+  return ch;
+}
+
+// Two crops side by side: the 4:5 post and the asset's own ratio, so you can see what each
+// one keeps. They rise and fade in when the mockup is chosen.
+R.social = (ctx, W, H, img, state, enter = 1) => {
+  const natural = clamp(img.width / img.height, 0.8, 1.91);
+  const cards = [{ ar: 0.8, label: '4:5' }, { ar: natural, label: ratioLabel(natural) }];
+  const gap = 0.08, cap = 0.075, head = 0.115, foot = 0.30;
+  const tallest = Math.max(...cards.map(c => head + 1 / c.ar + foot));
+  const cw = Math.min(W * 0.94 / (2 + gap), H * 0.94 / (tallest + cap));
+  const totalW = cw * (2 + gap), totalH = cw * (tallest + cap);
+  const x0 = (W - totalW) / 2, y0 = (H - totalH) / 2;
+  cards.forEach((c, i) => {
+    const p = easeOut(clamp((enter - i * 0.2) / 0.8, 0, 1));
+    ctx.save();
+    ctx.globalAlpha = p;
+    ctx.translate(0, (1 - p) * cw * 0.07);
+    const x = x0 + i * cw * (1 + gap);
+    ctx.fillStyle = '#6b6b73'; ctx.font = `600 ${cw * 0.035}px ${UI}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    ctx.fillText(c.label, x, y0 + cw * cap * 0.6);
+    postCard(ctx, x, y0 + cw * cap, cw, c.ar, img);
+    ctx.restore();
+  });
 };
 
 R.badge = (ctx, W, H, img, state) => {
@@ -277,11 +308,11 @@ R.badge = (ctx, W, H, img, state) => {
   ctx.fillStyle = '#999'; ctx.font = `400 ${bh * 0.045}px "Helvetica Neue", Helvetica, Arial, sans-serif`; ctx.fillText('The New School · Commencement', bx + bw * 0.06, by + bh * 0.9);
 };
 
-export function drawMockup(ctx, id, W, H, img, state) {
+export function drawMockup(ctx, id, W, H, img, state, enter = 1) {
   placement = null;
   const fn = R[id];
   if (!fn) { placement = { matrix: ctx.getTransform(), dx: 0, dy: 0, dw: W, dh: H }; ctx.drawImage(img, 0, 0, W, H); return placement; }
-  ctx.save(); fn(ctx, W, H, img, state); ctx.restore();
+  ctx.save(); fn(ctx, W, H, img, state, enter); ctx.restore();
   return placement;
 }
 export const MOCKUP_EXPORT_LONG_SIDE = 2400;

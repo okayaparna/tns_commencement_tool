@@ -40,14 +40,16 @@ then visit http://localhost:8765 (ES modules do not run from `file://`).
 - **Pack**: closes the gaps. Each beam's width grows toward the spacing between its neighbours,
   so they meet edge to edge — a flare that keeps pace with the fan for rays, and for streamers
   the shuffled exits settle into a clean X that stays flush at both edges. Streamers with *Curve*
-  at 0 are two straight runs through the crossing point.
+  at 0 are two straight runs through the crossing point. Rays with **Mirror** on run through the
+  focus both ways; with Pack at 1 and a wide Span that gives the gapless symmetric burst.
 - **Sizes**: presets for screen, social, story, poster, program cover/spread, arena ribbon,
   banner, badge, or custom pixel sizes.
 - **Mockups**: arena jumbotron, program booklet, poster on wall, phone story, social post, name
   badge. The story carries real Instagram chrome — progress segments, poster row, reply bar and
   the scrims behind them — so you can see the band your type has to stay clear of. The social
-  post crops to Instagram's allowed range rather than forcing a square, so a story-shaped asset
-  loses a sliver instead of half its height.
+  post shows two crops side by side, the 4:5 and the asset's own ratio, rising in when you pick
+  it; it sits straight on the stage with no card behind it. Chrome icons are Material Symbols
+  Rounded at weight 300, loaded from Google Fonts — offline, hand-drawn outlines stand in.
 - **Motion**: its own tab, sectioned like Design. *Beams* is the colour run, sway and anchor
   drift. *Typography* swings the variable axes — weight and width breathe together, plus drift
   and sway — every oscillation on one frequency so the section loops on its own period. *Logos*
