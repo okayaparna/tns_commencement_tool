@@ -57,8 +57,6 @@ code { background: #eee; padding: 1px 4px; border-radius: 4px; }
 select { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: #fff; max-width: 100%; }
 input[type=number], input[type=text] { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: #fff; }
 textarea { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: #fff; font: inherit; resize: vertical; width: 100%; }
-.font-list { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
-.font-list .f { display: flex; justify-content: space-between; align-items: center; font-size: 12px; padding: 4px 6px; background: #f6f6f7; border-radius: 6px; }
 
 .stage-wrap { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .stage { flex: 1; position: relative; min-height: 0; background: #e9e9ec; background-image: radial-gradient(#d4d4d8 1px, transparent 1px); background-size: 18px 18px; }
@@ -84,9 +82,26 @@ textarea { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; 
 .range input[type=range] { flex: 1; accent-color: var(--accent); min-width: 0; }
 .range .val { width: 52px; font-size: 11px; text-align: right; border: 1px solid transparent; border-radius: 6px; padding: 2px 4px; background: transparent; }
 .range .val:focus { border-color: var(--line); background: #fff; outline: 0; }
-.seg { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
-.seg button { flex: 1; border: 0; border-radius: 0; padding: 5px 4px; font-size: 11px; background: transparent; }
+.seg { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; min-width: 0; }
+.seg button { flex: 1; border: 0; border-radius: 0; padding: 5px 4px; font-size: 11px; background: transparent; min-width: 0; }
 .seg button.active { background: var(--accent); color: #fff; }
+
+/* Figma-style compact controls: an icon that scrubs, a value you can type over. */
+.fieldrow { display: grid; gap: 6px; min-width: 0; }
+.field { display: flex; align-items: center; gap: 2px; border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: 0 2px 0 0; min-width: 0; height: 30px; }
+.field:hover { border-color: #bbb; }
+.field:focus-within { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.field .ico { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; flex: none; color: var(--muted); cursor: ew-resize; border-radius: 6px; touch-action: none; }
+.field .ico:hover { background: #f2f2f4; color: var(--text); }
+.field.scrubbing .ico { background: var(--accent); color: #fff; }
+.field .ico svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
+.field .num { flex: 1; min-width: 0; width: 100%; border: 0; background: transparent; padding: 0 2px 0 0; font-size: 12px; font-variant-numeric: tabular-nums; }
+.field .num:focus { outline: 0; }
+select.compact { height: 30px; padding: 0 6px; font-size: 12px; min-width: 0; width: 100%; }
+.seg.icons button { display: flex; align-items: center; justify-content: center; height: 28px; padding: 0; }
+.seg.icons svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.3; stroke-linecap: round; }
+/* The single shipped family, shown the way Figma shows a locked font field. */
+.note { border: 1px solid var(--line); border-radius: 8px; background: #f6f6f7; color: var(--muted); padding: 7px 9px; font-size: 12px; }
 .ctrl input[type=checkbox] { justify-self: start; accent-color: var(--accent); }
 .ctrl input[type=color] { width: 100%; height: 28px; }
 

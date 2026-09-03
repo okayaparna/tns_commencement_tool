@@ -37,15 +37,15 @@ export function buildSVG(state, time = 0) {
     });
   });
   const blend = f.blend !== 'normal' ? ` style="mix-blend-mode:${f.blend}"` : '';
-  const fonts = [...new Set([state.headline.font, state.caption.font])];
+  const fonts = [state.headline.font];
   const css = fontFaceCSS(fonts);
   let logo = '';
   if (state.logo.enabled && state.logo.src) {
     const img = getImage(state.logo.src);
     if (img) { const bx = logoBox(state.logo, W, H, img); logo = `<image href="${state.logo.src}" x="${num(bx.x)}" y="${num(bx.y)}" width="${num(bx.w)}" height="${num(bx.h)}" opacity="${state.logo.opacity}"/>`; }
   }
-  const behind = [state.headline, state.caption].filter(l => l.behind).map(l => textSVG(l, W, H)).join('');
-  const front = [state.headline, state.caption].filter(l => !l.behind).map(l => textSVG(l, W, H)).join('');
+  const behind = state.headline.behind ? textSVG(state.headline, W, H) : '';
+  const front = state.headline.behind ? '' : textSVG(state.headline, W, H);
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
 <defs>${css ? `<style>${css}</style>` : ''}<clipPath id="frame"><rect width="${W}" height="${H}"/></clipPath>${defs.join('')}</defs>

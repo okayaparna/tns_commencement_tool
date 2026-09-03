@@ -1,5 +1,7 @@
 // Default document state, size presets, templates and built-in looks.
 
+export const FONT = 'Neue Display Next Variable';
+
 export const BRAND = {
   blue: '#5E8DEA', pink: '#FF4FA1', green: '#18D24A', red: '#E52A1F', white: '#FFFFFF', black: '#111111',
 };
@@ -33,10 +35,12 @@ export const MOCKUPS = [
   { id: 'badge',   label: 'Name badge',       ratio: 4 / 3 },
 ];
 
-export const BLENDS = ['normal', 'multiply', 'screen', 'overlay', 'lighten', 'darken', 'difference', 'hard-light'];
+// 'overlay', 'difference' and 'hard-light' were dropped: on saturated brand colours they
+// always land in the muddy middle. These five stay legible where beams cross.
+export const BLENDS = ['normal', 'multiply', 'screen', 'lighten', 'darken'];
 
 export const DEFAULT_STATE = {
-  version: 1,
+  version: 2,
   size: { preset: 'wide', w: 1920, h: 1080 },
   background: BRAND.blue,
   palette: [BRAND.pink, BRAND.green, BRAND.red, BRAND.blue],
@@ -62,7 +66,8 @@ export const DEFAULT_STATE = {
     mode: 'gradient',     // solid | gradient | stripes
     colorStep: 1,         // palette index step per beam
     runSpread: 1,         // colours per beam length (1 = one pair)
-    blendSpace: 'oklab',  // oklab | srgb | hard  — how colours transition along a beam
+    blendSpace: 'oklch',  // oklch | oklab | hard — how colours transition along a beam
+    vividness: 0.85,      // 0..1 how hard mid-gradient chroma is held up (anti-mud)
     phase: 0,             // static gradient offset
     stripes: 3,           // stripes mode: sub-bands per beam
     seam: 0.06,           // gap between stripes (fraction of beam width)
@@ -81,19 +86,13 @@ export const DEFAULT_STATE = {
     fps: 30,
   },
   headline: {
-    enabled: true, text: '2025', font: 'Neue Display Next Variable', weight: '800',
-    wdth: 100, slnt: 0,   // variable-font axes (ignored by static fonts)
+    enabled: true, text: '2025', font: FONT,
+    wght: 800, wdth: 100, slnt: 0,   // variable-font axes
     size: 0.62,           // fraction of asset height
     letterSpacing: -0.04, // em
     lineHeight: 0.86,
     color: BRAND.white, x: 0.5, y: 0.5, align: 'center', valign: 'middle',
     behind: false, rotate: 0,
-  },
-  caption: {
-    enabled: false, text: 'EIGHTY-NINTH ANNUAL UNIVERSITY COMMENCEMENT CEREMONY\nBARCLAYS CENTER, BROOKLYN, NEW YORK · MAY 16', font: 'Neue Display Next Medium', weight: '500',
-    wdth: 100, slnt: 0,
-    size: 0.028, letterSpacing: 0.02, lineHeight: 1.35,
-    color: BRAND.white, x: 0.04, y: 0.95, align: 'left', valign: 'bottom', behind: false, rotate: 0,
   },
   logo: { enabled: false, src: null, x: 0.96, y: 0.05, width: 0.12, align: 'right', valign: 'top', opacity: 1 },
   mockup: { id: 'none', showGuides: true },
@@ -123,18 +122,5 @@ export const LOOKS = [
     shape: { template: 'streamers', count: 10, baseWidth: 0.07, spread: 1.1, pinch: 0.5, tension: 0.5, focusX: 0.5, focusY: 0.5, angle: 10, jitter: 0.6, seed: 11 },
     fill: { mode: 'gradient', blend: 'normal', runSpread: 2 },
     headline: { text: '2025', size: 0.5 },
-  } },
-  { id: 'multiply', label: 'Intersections · multiply', swatch: [BRAND.white, BRAND.pink, BRAND.green, BRAND.blue], state: {
-    background: BRAND.white, palette: [BRAND.pink, BRAND.green, BRAND.blue, BRAND.red],
-    shape: { template: 'weave', count: 8, baseWidth: 0.12, angle: 25, span: 80, spread: 0.7, jitter: 0.4, seed: 21 },
-    fill: { mode: 'solid', blend: 'multiply', opacity: 0.9 },
-    headline: { text: '2025', size: 0.5, color: BRAND.black },
-  } },
-  { id: 'ribbon', label: 'Arena ribbon', swatch: [BRAND.red, BRAND.blue, BRAND.green, BRAND.pink], state: {
-    size: { preset: 'ribbon', w: 3840, h: 960 },
-    background: BRAND.blue, palette: [BRAND.pink, BRAND.green, BRAND.red, BRAND.blue],
-    shape: { template: 'weave', count: 12, baseWidth: 0.16, angle: -12, span: 26, spread: 1.2, jitter: 0.5, seed: 9 },
-    fill: { mode: 'gradient' }, headline: { text: '2025', size: 0.8, letterSpacing: -0.03 },
-    mockup: { id: 'arena' },
   } },
 ];

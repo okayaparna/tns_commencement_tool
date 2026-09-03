@@ -1,6 +1,6 @@
 // Turns the document state into a list of beams (ribbons) in asset pixel space.
 // A beam = centreline points + per-point widths + colour sets (one per stripe).
-import { mulberry32, lerp, clamp, TAU, cycleColorOklab as cycleColor, mod } from './util.js';
+import { mulberry32, lerp, clamp, TAU, cycleColorOklab, cycleColorOklch, mod } from './util.js';
 
 const bell = (t, width = 0.18) => Math.exp(-(((t - 0.5) / width) ** 2));
 
@@ -37,8 +37,8 @@ export function colorCycle(colors) {
   return colors.concat(colors.slice(1, -1).reverse());
 }
 // Gradient stops for the visible window of the cycle, shifted by phase (0..1 = one full loop).
-// space: 'oklab' (smooth, keeps chroma), 'srgb' (browser default lerp), 'hard' (crisp colour bands).
-export function gradientStops(colors, phase, space = 'oklab') {
+// space: 'oklch' (hue-arc, keeps mixes saturated), 'oklab' (straight line), 'hard' (crisp bands).
+export function gradientStops(colors, phase, space = 'oklch', vividness = 0) {
   if (colors.length === 1) return [{ pos: 0, color: colors[0] }, { pos: 1, color: colors[0] }];
   const cycle = colorCycle(colors);
   const n = cycle.length;
@@ -58,14 +58,14 @@ export function gradientStops(colors, phase, space = 'oklab') {
     stops.push({ pos: 1, color: cycleColorHard(cycle, u1 - 1e-6) });
     return stops;
   }
-  // 'srgb' uses only the palette colours as stops and lets the browser interpolate between them.
-  // 'oklab' sub-samples each segment so the browser's sRGB lerp follows the OKLab path.
-  const SUB = space === 'srgb' ? 1 : 6;
+  // The browser only lerps in sRGB between the stops we hand it, so sub-sample each
+  // segment finely enough that its straight lines follow the perceptual path we want.
+  const mix = space === 'oklab' ? cycleColorOklab : (c, u) => cycleColorOklch(c, u, vividness);
+  const SUB = 8;
   const us = new Set([u0, u1]);
   for (let j = 0; j <= 2 * n * SUB; j++) { const u = j / (n * SUB); if (u > u0 && u < u1) us.add(u); }
-  return [...us].sort((a, b) => a - b).map(u => ({ pos: at(u), color: cycleColor(cycle, u) }));
+  return [...us].sort((a, b) => a - b).map(u => ({ pos: at(u), color: mix(cycle, u) }));
 }
-// Nearest palette entry, with no interpolation.
 function cycleColorHard(cycle, u) { return cycle[Math.floor(mod(u, 1) * cycle.length) % cycle.length]; }
 
 export function buildBeams(state, time = 0) {
@@ -193,7 +193,7 @@ export function buildBeams(state, time = 0) {
       const colors = [];
       const cnt = f.mode === 'solid' ? 1 : Math.max(1, Math.round(f.runSpread)) + 1;
       for (let c = 0; c < cnt; c++) colors.push(pal[mod(base + j + c, pal.length)]);
-      b.stripes.push({ colors, stops: gradientStops(colors, phase, f.blendSpace) });
+      b.stripes.push({ colors, stops: gradientStops(colors, phase, f.blendSpace, f.vividness) });
     }
     b.phase = phase;
   }

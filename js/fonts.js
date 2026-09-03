@@ -1,8 +1,7 @@
-// Font registry: built-in system fonts plus fonts the user drops in (kept as data URLs
-// so they can be embedded in SVG exports and restored from localStorage).
+// Font registry. The studio ships one family — Neue Display Next Variable, listed in
+// fonts/fonts.json — and keeps it as a data URL so SVG exports can embed the face.
 
-const SYSTEM = ['Helvetica Neue', 'Helvetica', 'Arial', 'Inter', 'Georgia', 'Times New Roman', 'Courier New'];
-const custom = new Map(); // name -> { dataUrl, format, axes }
+const custom = new Map(); // name -> { dataUrl, format, axes, instances }
 const listeners = new Set();
 const variants = new Map(); // alias family -> 'ready' | 'pending'
 
@@ -31,6 +30,53 @@ function parseAxes(buf) {
     return axes.length ? axes : null;
   } catch (_) { return null; }
 }
+// Named instances ("Condensed Black Italic" …) are the axis presets the type designer
+// shipped. They are what a font picker should list; the raw axes are the fine control.
+function parseInstances(buf) {
+  try {
+    const dv = new DataView(buf);
+    const numTables = dv.getUint16(4);
+    let fvar = 0, name = 0;
+    for (let i = 0; i < numTables; i++) {
+      const o = 12 + i * 16;
+      const tag = String.fromCharCode(dv.getUint8(o), dv.getUint8(o + 1), dv.getUint8(o + 2), dv.getUint8(o + 3));
+      if (tag === 'fvar') fvar = dv.getUint32(o + 8);
+      if (tag === 'name') name = dv.getUint32(o + 8);
+    }
+    if (!fvar || !name) return null;
+    const axesOff = dv.getUint16(fvar + 4), axisCount = dv.getUint16(fvar + 8), axisSize = dv.getUint16(fvar + 10);
+    const instCount = dv.getUint16(fvar + 12), instSize = dv.getUint16(fvar + 14);
+    const tags = [];
+    for (let i = 0; i < axisCount; i++) {
+      const a = fvar + axesOff + i * axisSize;
+      tags.push(String.fromCharCode(dv.getUint8(a), dv.getUint8(a + 1), dv.getUint8(a + 2), dv.getUint8(a + 3)));
+    }
+    const strOff = dv.getUint16(name + 4), recCount = dv.getUint16(name + 2);
+    const nameOf = id => {
+      for (let i = 0; i < recCount; i++) {
+        const r = name + 6 + i * 12;
+        if (dv.getUint16(r + 6) !== id) continue;
+        const platform = dv.getUint16(r), len = dv.getUint16(r + 8), off = name + strOff + dv.getUint16(r + 10);
+        let out = '';
+        if (platform === 3) for (let k = 0; k < len; k += 2) out += String.fromCharCode(dv.getUint16(off + k));
+        else for (let k = 0; k < len; k++) out += String.fromCharCode(dv.getUint8(off + k));
+        return out;
+      }
+      return null;
+    };
+    const out = [];
+    for (let i = 0; i < instCount; i++) {
+      const o = fvar + axesOff + axisCount * axisSize + i * instSize;
+      const label = nameOf(dv.getUint16(o));
+      if (!label) continue;
+      const coords = {};
+      for (let k = 0; k < axisCount; k++) coords[tags[k]] = dv.getInt32(o + 4 + k * 4) / 65536;
+      out.push({ label, coords });
+    }
+    return out.length ? out : null;
+  } catch (_) { return null; }
+}
+
 function dataUrlToBuffer(dataUrl) {
   const bin = atob(dataUrl.slice(dataUrl.indexOf(',') + 1));
   const arr = new Uint8Array(bin.length);
@@ -39,6 +85,7 @@ function dataUrlToBuffer(dataUrl) {
 }
 
 export function fontAxes(name) { const f = custom.get(name); return (f && f.axes) || null; }
+export function fontInstances(name) { const f = custom.get(name); return (f && f.instances) || []; }
 export function hasAxis(name, tag) { const a = fontAxes(name); return !!(a && a.some(x => x.tag === tag)); }
 export function axisRange(name, tag) {
   const a = fontAxes(name); const ax = a && a.find(x => x.tag === tag);
@@ -79,7 +126,7 @@ export function variationCSS(name, vars) {
   return f.axes.map(ax => `"${ax.tag}" ${vars && vars[ax.tag] != null ? vars[ax.tag] : ax.def}`).join(', ');
 }
 
-export function fontNames() { return [...custom.keys(), ...SYSTEM]; }
+export function fontNames() { return [...custom.keys()]; }
 export function customFont(name) { return custom.get(name) || null; }
 export function onFontsChanged(fn) { listeners.add(fn); }
 const notify = () => listeners.forEach(fn => fn());
@@ -95,10 +142,10 @@ export async function registerFontFromDataUrl(name, dataUrl, format) {
   const face = new FontFace(name, `url(${dataUrl})`);
   await face.load();
   document.fonts.add(face);
-  let axes = null;
-  try { axes = parseAxes(dataUrlToBuffer(dataUrl)); } catch (_) {}
-  custom.set(name, { dataUrl, format: format || formatOf(dataUrl), axes });
-  persist(); notify();
+  let axes = null, instances = null;
+  try { const buf = dataUrlToBuffer(dataUrl); axes = parseAxes(buf); instances = parseInstances(buf); } catch (_) {}
+  custom.set(name, { dataUrl, format: format || formatOf(dataUrl), axes, instances });
+  notify();
   return name;
 }
 
@@ -124,22 +171,9 @@ export async function loadProjectFonts() {
   } catch (_) { /* no manifest: fine */ }
 }
 
-const KEY = 'tns-studio-fonts';
-function persist() {
-  try {
-    const obj = {}; for (const [k, v] of custom) obj[k] = { dataUrl: v.dataUrl, format: v.format };
-    localStorage.setItem(KEY, JSON.stringify(obj));
-  } catch (e) { console.warn('font persist failed (too large?)', e); }
-}
-export async function restoreFonts() {
-  try {
-    const obj = JSON.parse(localStorage.getItem(KEY) || '{}');
-    for (const [name, v] of Object.entries(obj)) {
-      if (!custom.has(name)) await registerFontFromDataUrl(name, v.dataUrl, v.format);
-    }
-  } catch (_) {}
-}
-export function removeFont(name) { custom.delete(name); persist(); notify(); }
+// Earlier versions let you upload extra faces and cached them here. One family now, so
+// clear the cache rather than leave dead megabytes in localStorage.
+try { localStorage.removeItem('tns-studio-fonts'); } catch (_) {}
 
 // CSS @font-face rules for embedding in SVG.
 export function fontFaceCSS(names) {

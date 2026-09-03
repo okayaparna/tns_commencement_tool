@@ -7,6 +7,7 @@ export const setPath = (obj, path, value) => {
 };
 
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const clamp = (v, a, b) => (a == null ? v : b == null ? v : Math.min(b, Math.max(a, v)));
 
 export function buildControls(container, groups, ctx) {
   container.innerHTML = '';
@@ -19,20 +20,15 @@ export function buildControls(container, groups, ctx) {
     const list = el('div', 'ctrls');
     box.append(h, list);
     container.appendChild(box);
-    const visibility = [];
     for (const c of g.controls) {
-      const row = el('div', 'ctrl' + (c.wide || c.type === 'textarea' ? ' wide' : ''));
-      if (c.type !== 'textarea' || c.label) row.appendChild(el('label', null, c.label));
-      const input = makeInput(c, ctx);
-      row.appendChild(input.node);
+      const { row, refresh } = makeRow(c, ctx);
       list.appendChild(row);
       refreshers.push(() => {
         const s = ctx.getState();
         const vis = !c.when || c.when(s);
         row.hidden = !vis;
-        if (vis) input.refresh(s);
+        if (vis) refresh(s);
       });
-      visibility.push(() => !c.when || c.when(ctx.getState()));
     }
     refreshers.push(() => { box.hidden = !!g.when && !g.when(ctx.getState()); });
   }
@@ -41,58 +37,89 @@ export function buildControls(container, groups, ctx) {
   return { refresh };
 }
 
+// One labelled row. Field rows carry their label inside the box, so they skip the label column.
+function makeRow(c, ctx) {
+  const bare = c.type === 'fields' || c.type === 'note' || c.wide || c.type === 'textarea';
+  const row = el('div', 'ctrl' + (bare ? ' wide' : ''));
+  if (!bare && (c.type !== 'textarea' || c.label)) row.appendChild(el('label', null, c.label));
+  const input = makeInput(c, ctx);
+  row.appendChild(input.node);
+  return { row, refresh: input.refresh };
+}
+
 function makeInput(c, ctx) {
-  const set = v => ctx.set(c.path, v, c);
+  const write = v => (c.onSet ? c.onSet(v, ctx) : ctx.set(c.path, v, c));
+  const read = s => (c.get ? c.get(s) : getPath(s, c.path));
   switch (c.type) {
     case 'range': {
       const wrap = el('div', 'range');
       const r = el('input'); r.type = 'range'; r.min = c.min; r.max = c.max; r.step = c.step ?? 0.01;
       const v = el('input', 'val'); v.type = 'text';
       const fmt = x => (c.fmt ? c.fmt(x) : Number(x).toFixed(c.decimals ?? (c.step >= 1 ? 0 : 2)));
-      r.addEventListener('input', () => { set(parseFloat(r.value)); v.value = fmt(r.value); });
-      v.addEventListener('change', () => { const n = parseFloat(v.value); if (!isNaN(n)) { set(n); r.value = n; v.value = fmt(n); } });
+      r.addEventListener('input', () => { write(parseFloat(r.value)); v.value = fmt(r.value); });
+      v.addEventListener('change', () => { const n = parseFloat(v.value); if (!isNaN(n)) { write(n); r.value = n; v.value = fmt(n); } });
       wrap.append(r, v);
-      return { node: wrap, refresh: s => { const x = getPath(s, c.path); r.value = x; if (document.activeElement !== v) v.value = fmt(x); } };
+      return { node: wrap, refresh: s => { const x = read(s); r.value = x; if (document.activeElement !== v) v.value = fmt(x); } };
     }
-    case 'select': {
-      const s = el('select');
-      const fill = () => {
-        const opts = typeof c.options === 'function' ? c.options() : c.options;
-        s.innerHTML = '';
-        for (const o of opts) { const op = el('option', null, o.label ?? o); op.value = o.value ?? o; s.appendChild(op); }
-      };
-      fill();
-      s.addEventListener('change', () => set(c.number ? parseFloat(s.value) : s.value));
-      return { node: s, refresh: st => { if (typeof c.options === 'function') fill(); s.value = getPath(st, c.path); } };
+    case 'select': return makeSelect(c, read, write);
+    case 'field': return makeField(c, read, write);
+    // A row of compact fields / selects sharing one line, Figma-style.
+    case 'fields': {
+      const wrap = el('div', 'fieldrow');
+      wrap.style.gridTemplateColumns = c.cols || `repeat(${c.items.length}, minmax(0, 1fr))`;
+      const kids = c.items.map(item => {
+        const made = makeInput(item, ctx);
+        wrap.appendChild(made.node);
+        return { item, made };
+      });
+      return { node: wrap, refresh: s => kids.forEach(({ item, made }) => {
+        const vis = !item.when || item.when(s);
+        made.node.hidden = !vis;
+        if (vis) made.refresh(s);
+      }) };
     }
     case 'seg': {
       const wrap = el('div', 'seg');
-      const btns = c.options.map(o => { const b = el('button', null, o.label ?? o); b.type = 'button'; b.addEventListener('click', () => set(o.value ?? o)); wrap.appendChild(b); return [o.value ?? o, b]; });
-      return { node: wrap, refresh: s => { const cur = getPath(s, c.path); btns.forEach(([v, b]) => b.classList.toggle('active', v === cur)); } };
+      const btns = c.options.map(o => { const b = el('button', null, o.label ?? o); b.type = 'button'; b.title = o.title || ''; b.addEventListener('click', () => write(o.value ?? o)); wrap.appendChild(b); return [o.value ?? o, b]; });
+      return { node: wrap, refresh: s => { const cur = read(s); btns.forEach(([v, b]) => b.classList.toggle('active', v === cur)); } };
+    }
+    // Icon segments: the same control, drawn as pictures.
+    case 'iconseg': {
+      const wrap = el('div', 'seg icons');
+      const btns = c.options.map(o => {
+        const b = el('button'); b.type = 'button'; b.title = o.title || ''; b.innerHTML = o.icon;
+        b.addEventListener('click', () => write(o.value));
+        wrap.appendChild(b); return [o.value, b];
+      });
+      return { node: wrap, refresh: s => { const cur = read(s); btns.forEach(([v, b]) => b.classList.toggle('active', v === cur)); } };
     }
     case 'checkbox': {
       const i = el('input'); i.type = 'checkbox';
-      i.addEventListener('change', () => set(i.checked));
-      return { node: i, refresh: s => { i.checked = !!getPath(s, c.path); } };
+      i.addEventListener('change', () => write(i.checked));
+      return { node: i, refresh: s => { i.checked = !!read(s); } };
     }
     case 'color': {
       const i = el('input'); i.type = 'color';
-      i.addEventListener('input', () => set(i.value));
-      return { node: i, refresh: s => { i.value = getPath(s, c.path); } };
+      i.addEventListener('input', () => write(i.value));
+      return { node: i, refresh: s => { i.value = read(s); } };
     }
     case 'text': {
       const i = el('input'); i.type = 'text';
-      i.addEventListener('input', () => set(i.value));
-      return { node: i, refresh: s => { if (document.activeElement !== i) i.value = getPath(s, c.path); } };
+      i.addEventListener('input', () => write(i.value));
+      return { node: i, refresh: s => { if (document.activeElement !== i) i.value = read(s); } };
     }
     case 'textarea': {
       const i = el('textarea'); i.rows = c.rows || 2; i.placeholder = c.placeholder || '';
-      i.addEventListener('input', () => set(i.value));
-      return { node: i, refresh: s => { if (document.activeElement !== i) i.value = getPath(s, c.path); } };
+      i.addEventListener('input', () => write(i.value));
+      return { node: i, refresh: s => { if (document.activeElement !== i) i.value = read(s); } };
+    }
+    case 'note': {
+      const n = el('div', 'note', c.text);
+      return { node: n, refresh: s => { if (c.render) n.textContent = c.render(s); } };
     }
     case 'buttons': {
       const wrap = el('div', 'seg');
-      for (const b of c.buttons) { const btn = el('button', null, b.label); btn.type = 'button'; btn.addEventListener('click', () => b.onClick(ctx)); wrap.appendChild(btn); }
+      for (const b of c.buttons) { const btn = el('button', null, b.label); btn.type = 'button'; btn.title = b.title || ''; btn.addEventListener('click', () => b.onClick(ctx)); wrap.appendChild(btn); }
       return { node: wrap, refresh: () => {} };
     }
     case 'file': {
@@ -104,4 +131,76 @@ function makeInput(c, ctx) {
     }
   }
   return { node: el('span', null, '?'), refresh: () => {} };
+}
+
+function makeSelect(c, read, write) {
+  const s = el('select');
+  if (c.compact) s.className = 'compact';
+  const fill = () => {
+    const opts = typeof c.options === 'function' ? c.options() : c.options;
+    s.innerHTML = '';
+    for (const o of opts) {
+      if (o && o.group) {
+        const gp = el('optgroup'); gp.label = o.group;
+        for (const x of o.options) { const op = el('option', null, x.label ?? x); op.value = x.value ?? x; gp.appendChild(op); }
+        s.appendChild(gp);
+      } else { const op = el('option', null, o.label ?? o); op.value = o.value ?? o; s.appendChild(op); }
+    }
+  };
+  fill();
+  s.addEventListener('change', () => write(c.number ? parseFloat(s.value) : s.value));
+  return { node: s, refresh: st => {
+    if (typeof c.options === 'function') fill();
+    const v = String(read(st));
+    // A live axis combination that matches no named instance shows as "Custom".
+    if (c.allowCustom && ![...s.options].some(o => o.value === v)) {
+      const op = el('option', null, c.customLabel || 'Custom'); op.value = v; s.insertBefore(op, s.firstChild);
+    }
+    s.value = v;
+  } };
+}
+
+// A boxed numeric field: type over the value, or drag its icon sideways to scrub —
+// the trick that makes Figma's panels feel direct. Arrow keys nudge by one step.
+function makeField(c, read, write) {
+  const wrap = el('div', 'field');
+  wrap.title = c.title || c.label || '';
+  const ic = el('span', 'ico'); ic.innerHTML = c.icon || '';
+  const i = el('input', 'num'); i.type = 'text'; i.inputMode = 'decimal';
+  wrap.append(ic, i);
+
+  const step = c.step ?? 1;
+  const dec = c.decimals ?? (step >= 1 ? 0 : String(step).split('.')[1]?.length || 2);
+  const fmt = x => (c.fmt ? c.fmt(x) : Number(x).toFixed(dec)) + (c.unit || '');
+  const parse = str => {
+    const n = c.parse ? c.parse(str) : parseFloat(String(str).replace(/[^\d.+-]/g, ''));
+    return isNaN(n) ? null : n;
+  };
+  const commit = v => { const q = clamp(Math.round(v / step) * step, c.min, c.max); write(+q.toFixed(6)); return q; };
+
+  i.addEventListener('change', () => { const n = parse(i.value); if (n != null) i.value = fmt(commit(n)); });
+  i.addEventListener('keydown', e => {
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+    e.preventDefault();
+    const n = parse(i.value); if (n == null) return;
+    i.value = fmt(commit(n + (e.key === 'ArrowUp' ? 1 : -1) * step * (e.shiftKey ? 10 : 1)));
+  });
+
+  let scrub = null;
+  ic.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    const n = parse(i.value); if (n == null) return;
+    scrub = { x: e.clientX, v: n };
+    ic.setPointerCapture(e.pointerId);
+    wrap.classList.add('scrubbing');
+  });
+  ic.addEventListener('pointermove', e => {
+    if (!scrub) return;
+    const perPx = c.scrub ?? step;
+    i.value = fmt(commit(scrub.v + (e.clientX - scrub.x) * perPx * (e.shiftKey ? 0.1 : 1)));
+  });
+  const stop = () => { scrub = null; wrap.classList.remove('scrubbing'); };
+  ic.addEventListener('pointerup', stop); ic.addEventListener('pointercancel', stop);
+
+  return { node: wrap, refresh: s => { if (document.activeElement !== i) i.value = fmt(read(s)); } };
 }

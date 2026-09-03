@@ -16,22 +16,27 @@ then visit http://localhost:8765 (ES modules do not run from `file://`).
 
 - **Patterns**: rays from a focus point, weave, and streamers (curved ribbons merging).
 - **Colour**: background + ordered beam palette; solid, gradient or striped beams; blend modes
-  (multiply / screen / …) so intersections mix; outline strokes.
-- **Transition**: how colours change along a beam — *Smooth* (OKLab, keeps chroma up),
-  *sRGB* (browser default), or *Hard* (crisp colour bands, closest to the 2025 posters).
-- **Align**: drag the anchor handle, headline, caption or logo directly on the canvas
+  so intersections mix; outline strokes.
+- **Mix**: how colours travel along a beam. *Arc* rotates round the hue wheel, so pink → green
+  passes through amber instead of the grey that a straight OKLab line runs through; *Direct* is
+  that straight line; *Hard* does not mix at all (crisp bands, closest to the 2025 posters).
+  **Vividness** holds mid-gradient chroma up toward the more saturated of the two colours.
+- **Align**: drag the anchor handle, headline or logo directly on the canvas
   (snaps to centre and thirds; hold Shift to disable, Alt-drag to jump the anchor).
 - **Sizes**: presets for screen, social, story, poster, program cover/spread, arena ribbon,
   banner, badge, or custom pixel sizes.
 - **Mockups**: arena jumbotron, program booklet, poster on wall, phone story, social post, name badge.
 - **Motion**: colour run, sway, anchor drift; "fit duration to a seamless loop".
-- **Export**: PNG (0.5× / 1× / 2×), SVG (vector, fonts embedded when uploaded), video
+- **Export**: PNG (0.5× / 1× / 2×), SVG (vector, font embedded), video
   (MP4 in Chrome 126+ / Safari, WebM elsewhere), and JSON presets.
-- **Type**: the four brand faces load automatically from `fonts/`. Neue Display Next Variable is a
-  variable font, so the Headline and Caption panels expose live **Weight** (100-900), **Width**
-  (50-200, Compressed through Extended) and **Slant** (0 to -20) sliders, with one-click width presets.
-- **Fonts**: to add more, upload .otf/.ttf/.woff in the Fonts panel, or drop files in `fonts/` and
-  list them in `fonts/fonts.json`:
+- **Type**: one family — Neue Display Next Variable, loaded from `fonts/`. The Type panel is
+  laid out like Figma's: a **Style** dropdown listing all 108 of the font's named instances
+  (Compressed → Extended × Hairline → Black, roman and italic), then compact fields for size,
+  line height, tracking, position and rotation in px / % / °. Drag a field's icon sideways to
+  scrub the value, or type over it; arrow keys nudge (Shift for ×10). *Variable axes* underneath
+  gives raw **Weight** (100-900), **Width** (50-200) and **Slant** (0 to -20) for anything
+  between two named instances.
+- **Fonts**: the family is listed in `fonts/fonts.json`:
 
 ```json
 [{ "name": "Neue Display Next Variable", "file": "NeueDisplayNextVariable.ttf" }]
@@ -49,5 +54,7 @@ Keyboard: `Space` play/pause, `R` shuffle seed, `G` guides, `⌘Z` undo.
 - `js/svg.js` — SVG exporter using the same scene model
 - `js/mockups.js` — mockup scenes drawn around the asset
 - `js/export.js` — PNG / SVG / video / JSON export
+- `js/util.js` — maths plus the OKLab / OKLCh colour mixing
+- `js/fonts.js` — the font registry and the `fvar` reader for axes and named instances
 - `js/state.js` — defaults, size presets, looks
 - `js/main.js`, `js/ui.js` — app shell and control panel

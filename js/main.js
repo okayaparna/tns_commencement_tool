@@ -1,11 +1,11 @@
-import { DEFAULT_STATE, SIZE_PRESETS, TEMPLATES, MOCKUPS, LOOKS, BLENDS, BRAND } from './state.js';
+import { DEFAULT_STATE, SIZE_PRESETS, TEMPLATES, MOCKUPS, LOOKS, BLENDS, BRAND, FONT } from './state.js';
 import { deepClone, deepMerge, clamp } from './util.js';
 import { renderAsset, layoutText, fontString, renderAssetToCanvas, getImage, logoBox } from './paint.js';
 import { anchorPoint } from './geometry.js';
 import { drawMockup } from './mockups.js';
 import { exportPNG, exportSVG, exportVideo, exportJSON, videoMime } from './export.js';
 import { buildControls, getPath, setPath } from './ui.js';
-import { fontNames, registerFontFile, loadProjectFonts, restoreFonts, onFontsChanged, customFont, removeFont, hasAxis, axisRange } from './fonts.js';
+import { loadProjectFonts, onFontsChanged, fontInstances, hasAxis, axisRange } from './fonts.js';
 
 const $ = s => document.querySelector(s);
 const STORAGE = 'tns-studio-state-v1';
@@ -100,10 +100,8 @@ function drawGuides(k) {
   ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.fill(); ctx.strokeStyle = '#111'; ctx.lineWidth = 2 / k * view.dpr; ctx.stroke();
   ctx.beginPath(); ctx.arc(a.x, a.y, r * 0.35, 0, Math.PI * 2); ctx.fillStyle = '#111'; ctx.fill();
   // text boxes
-  for (const layer of [state.headline, state.caption]) {
-    const b = textBox(layer); if (!b) continue;
-    ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 1 / k * view.dpr; ctx.strokeRect(b.x, b.y, b.w, b.h);
-  }
+  const tb = textBox(state.headline);
+  if (tb) { ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 1 / k * view.dpr; ctx.strokeRect(tb.x, tb.y, tb.w, tb.h); }
   ctx.restore();
 }
 
@@ -134,10 +132,8 @@ canvas.addEventListener('pointerdown', e => {
   const a = anchorPoint(state);
   if (Math.hypot(p.x - a.x, p.y - a.y) < hitR * 1.4) drag = { kind: 'anchor', start: p, sx: state.shape.focusX, sy: state.shape.focusY };
   else {
-    for (const key of ['caption', 'headline']) {
-      const b = textBox(state[key]);
-      if (b && p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h) { drag = { kind: 'text', key, start: p, sx: state[key].x, sy: state[key].y }; break; }
-    }
+    const b = textBox(state.headline);
+    if (b && p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h) drag = { kind: 'text', key: 'headline', start: p, sx: state.headline.x, sy: state.headline.y };
     if (!drag && state.logo.enabled && state.logo.src) {
       const img = getImage(state.logo.src);
       if (img) { const b = logoBox(state.logo, W, H, img); if (p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h) drag = { kind: 'logo', start: p, sx: state.logo.x, sy: state.logo.y }; }
@@ -165,7 +161,8 @@ canvas.addEventListener('pointerup', endDrag); canvas.addEventListener('pointerc
 function hoverCursor(p) {
   const a = anchorPoint(state);
   if (Math.hypot(p.x - a.x, p.y - a.y) < 20 / view.k * view.dpr) return 'grab';
-  for (const key of ['caption', 'headline']) { const b = textBox(state[key]); if (b && p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h) return 'move'; }
+  const b = textBox(state.headline);
+  if (b && p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h) return 'move';
   return 'default';
 }
 
@@ -208,10 +205,6 @@ function buildLeft() {
   $('#motion-toggle').addEventListener('change', e => { set('motion.enabled', e.target.checked); lastT = null; });
   $('#guides-toggle').addEventListener('change', e => set('mockup.showGuides', e.target.checked));
   $('#video-duration').addEventListener('change', e => set('motion.duration', clamp(+e.target.value || 6, 1, 60)));
-  $('#file-font').addEventListener('change', async e => {
-    for (const f of e.target.files) { try { const name = await registerFontFile(f); toast(`Font added: ${name}`); set('headline.font', name); } catch (err) { toast('Could not load font: ' + err.message); } }
-    e.target.value = '';
-  });
 }
 let activeLook = null;
 function renderPalette() {
@@ -225,55 +218,95 @@ function renderPalette() {
     chip.append(inp, del); pal.appendChild(chip);
   });
 }
-function renderFontList() {
-  const list = $('#font-list'); list.innerHTML = '';
-  for (const n of fontNames()) {
-    if (!customFont(n)) continue;
-    const row = document.createElement('div'); row.className = 'f';
-    row.innerHTML = `<span style="font-family:'${n}'">${n}</span>`;
-    const b = document.createElement('button'); b.className = 'small'; b.textContent = 'remove';
-    b.addEventListener('click', () => { removeFont(n); renderFontList(); controls.refresh(); });
-    row.appendChild(b); list.appendChild(row);
-  }
-}
-
 // ---------- right panel schema ----------
 const tpl = id => s => s.shape.template === id;
 const anyOf = (...ids) => s => ids.includes(s.shape.template);
-const textGroup = (key, title, collapsed) => ({
-  title, collapsed, controls: [
-    { path: `${key}.enabled`, label: 'Show', type: 'checkbox' },
-    { path: `${key}.text`, label: '', type: 'textarea', rows: key === 'headline' ? 2 : 3, placeholder: 'Text (new lines allowed)' },
-    { path: `${key}.font`, label: 'Font', type: 'select', options: () => fontNames() },
-    { path: `${key}.weight`, label: 'Weight', type: 'range', min: 100, max: 900, step: 10, decimals: 0 },
-    { path: `${key}.wdth`, label: 'Width', type: 'range', min: 50, max: 200, step: 1, decimals: 0, when: s => hasAxis(s[key].font, 'wdth') },
-    { path: `${key}.slnt`, label: 'Slant', type: 'range', min: -20, max: 0, step: 0.5, decimals: 1, when: s => hasAxis(s[key].font, 'slnt') },
-    { label: 'Width preset', type: 'buttons', wide: true, when: s => hasAxis(s[key].font, 'wdth'), buttons: [
-      { label: 'Comp', onClick: () => set(`${key}.wdth`, 50) },
-      { label: 'Cond', onClick: () => set(`${key}.wdth`, 75) },
-      { label: 'Norm', onClick: () => set(`${key}.wdth`, 100) },
-      { label: 'Wide', onClick: () => set(`${key}.wdth`, 125) },
-      { label: 'Ultra', onClick: () => set(`${key}.wdth`, 150) },
-      { label: 'Ext', onClick: () => set(`${key}.wdth`, 200) },
-    ] },
-    { path: `${key}.size`, label: 'Size', type: 'range', min: 0.01, max: key === 'headline' ? 1.4 : 0.2, step: 0.005, decimals: 3 },
-    { path: `${key}.letterSpacing`, label: 'Tracking', type: 'range', min: -0.15, max: 0.4, step: 0.005, decimals: 3 },
-    { path: `${key}.lineHeight`, label: 'Line height', type: 'range', min: 0.6, max: 2, step: 0.01 },
-    { path: `${key}.color`, label: 'Colour', type: 'color' },
-    { path: `${key}.align`, label: 'Align', type: 'seg', options: [{ value: 'left', label: 'Left' }, { value: 'center', label: 'Centre' }, { value: 'right', label: 'Right' }] },
-    { path: `${key}.valign`, label: 'V-align', type: 'seg', options: [{ value: 'top', label: 'Top' }, { value: 'middle', label: 'Middle' }, { value: 'bottom', label: 'Bottom' }] },
-    { path: `${key}.x`, label: 'X', type: 'range', min: -0.2, max: 1.2, step: 0.005, decimals: 3 },
-    { path: `${key}.y`, label: 'Y', type: 'range', min: -0.2, max: 1.2, step: 0.005, decimals: 3 },
-    { path: `${key}.rotate`, label: 'Rotate', type: 'range', min: -90, max: 90, step: 1 },
-    { path: `${key}.behind`, label: 'Behind beams', type: 'checkbox' },
-    { label: 'Quick place', type: 'buttons', wide: true, buttons: [
-      { label: 'Centre', onClick: () => patch({ [key]: { x: 0.5, y: 0.5, align: 'center', valign: 'middle' } }) },
-      { label: 'Top-left', onClick: () => patch({ [key]: { x: 0.05, y: 0.06, align: 'left', valign: 'top' } }) },
-      { label: 'Bottom-left', onClick: () => patch({ [key]: { x: 0.05, y: 0.94, align: 'left', valign: 'bottom' } }) },
-      { label: 'Bottom-right', onClick: () => patch({ [key]: { x: 0.95, y: 0.94, align: 'right', valign: 'bottom' } }) },
-    ] },
-  ],
-});
+
+// ---------- type controls ----------
+// 16px line icons so the numeric fields read as pictures, the way Figma's do.
+const ICO = {
+  size:  '<svg viewBox="0 0 16 16"><path d="M1.5 13 5.5 3 9.5 13M2.9 10.2h5.2"/><path d="M12.8 3.6v8.8M11.3 5.1l1.5-1.5 1.5 1.5M11.3 10.9l1.5 1.5 1.5-1.5"/></svg>',
+  lineh: '<svg viewBox="0 0 16 16"><path d="M2 2.8h12M2 13.2h12"/><path d="M8 5.2v5.6M6.6 6.6 8 5.2l1.4 1.4M6.6 9.4 8 10.8l1.4-1.4"/></svg>',
+  track: '<svg viewBox="0 0 16 16"><path d="M2.6 2.8v10.4M13.4 2.8v10.4"/><path d="M5.4 8h5.2M6.8 6.6 5.4 8l1.4 1.4M9.2 6.6 10.6 8 9.2 9.4"/></svg>',
+  rot:   '<svg viewBox="0 0 16 16"><path d="M13.2 8a5.2 5.2 0 1 1-1.7-3.85"/><path d="M13.4 3v2.4H11"/></svg>',
+  x:     '<svg viewBox="0 0 16 16"><path d="M2 8h11.4M11.2 5.8 13.4 8l-2.2 2.2"/></svg>',
+  y:     '<svg viewBox="0 0 16 16"><path d="M8 2v11.4M5.8 11.2 8 13.4l2.2-2.2"/></svg>',
+};
+const alignIcon = (a, b, c) => `<svg viewBox="0 0 16 16"><path d="M${a} 4h8M${b} 8h5M${c} 12h9"/></svg>`;
+const ALIGN_ICONS = { left: alignIcon(3, 3, 3), center: alignIcon(4, 5.5, 3.5), right: alignIcon(5, 8, 4) };
+const vAlignIcon = y => `<svg viewBox="0 0 16 16"><path d="M2.5 ${y}h11"/><rect x="4.5" y="${y === 3 ? 5 : y === 8 ? 5.5 : 4.5}" width="7" height="6" rx="1" fill="currentColor" stroke="none" opacity=".55"/></svg>`;
+const VALIGN_ICONS = { top: vAlignIcon(3), middle: vAlignIcon(8), bottom: vAlignIcon(13) };
+
+// Named instances of the variable font, grouped by width — the "Style" dropdown.
+const WIDTH_NAMES = { 50: 'Compressed', 75: 'Condensed', 100: 'Normal', 125: 'Wide', 150: 'Ultra', 200: 'Extended' };
+const styleKey = h => `${h.wdth},${h.wght},${h.slnt}`;
+function styleOptions() {
+  const byWidth = new Map();
+  for (const inst of fontInstances(FONT)) {
+    const w = inst.coords.wdth ?? 100;
+    const group = WIDTH_NAMES[w] || `Width ${w}`;
+    // "Condensed Black Italic" inside the Condensed group is just "Black Italic".
+    const label = inst.label.startsWith(group + ' ') ? inst.label.slice(group.length + 1) : inst.label;
+    if (!byWidth.has(w)) byWidth.set(w, []);
+    byWidth.get(w).push({ label, value: `${w},${inst.coords.wght ?? 400},${inst.coords.slnt ?? 0}` });
+  }
+  return [...byWidth.keys()].sort((a, b) => a - b)
+    .map(w => ({ group: WIDTH_NAMES[w] || `Width ${w}`, options: byWidth.get(w) }));
+}
+const axis = (tag, fallback) => axisRange(FONT, tag) || fallback;
+
+const TYPE_GROUP = { title: 'Type', controls: [
+  { path: 'headline.enabled', label: 'Show', type: 'checkbox' },
+  { path: 'headline.text', type: 'textarea', rows: 2, placeholder: 'Headline (new lines allowed)' },
+  { type: 'note', text: FONT.replace(' Variable', ''), wide: true },
+  { type: 'fields', cols: '1.4fr 1fr', items: [
+    { type: 'select', compact: true, options: styleOptions, allowCustom: true, title: 'Style',
+      get: s => styleKey(s.headline),
+      onSet: v => { const [wdth, wght, slnt] = v.split(',').map(Number); patch({ headline: { wdth, wght, slnt } }); } },
+    // Size, line height and tracking read in the units a designer thinks in, not fractions.
+    { type: 'field', icon: ICO.size, title: 'Size (px)', min: 4, max: 6000, step: 1, scrub: 3, unit: ' px',
+      get: s => s.headline.size * s.size.h, onSet: v => set('headline.size', v / state.size.h) },
+  ] },
+  { type: 'fields', items: [
+    { type: 'field', icon: ICO.lineh, title: 'Line height', min: 40, max: 300, step: 1, unit: '%',
+      get: s => s.headline.lineHeight * 100, onSet: v => set('headline.lineHeight', v / 100) },
+    { type: 'field', icon: ICO.track, title: 'Letter spacing', min: -20, max: 60, step: 0.1, decimals: 1, scrub: 0.2, unit: '%',
+      get: s => s.headline.letterSpacing * 100, onSet: v => set('headline.letterSpacing', v / 100) },
+  ] },
+  { type: 'fields', items: [
+    { type: 'iconseg', path: 'headline.align', options: [
+      { value: 'left', icon: ALIGN_ICONS.left, title: 'Align left' },
+      { value: 'center', icon: ALIGN_ICONS.center, title: 'Align centre' },
+      { value: 'right', icon: ALIGN_ICONS.right, title: 'Align right' } ] },
+    { type: 'iconseg', path: 'headline.valign', options: [
+      { value: 'top', icon: VALIGN_ICONS.top, title: 'Align top' },
+      { value: 'middle', icon: VALIGN_ICONS.middle, title: 'Align middle' },
+      { value: 'bottom', icon: VALIGN_ICONS.bottom, title: 'Align bottom' } ] },
+  ] },
+  { type: 'fields', items: [
+    { type: 'field', icon: ICO.x, title: 'X (px)', min: -20000, max: 20000, step: 1, scrub: 3,
+      get: s => s.headline.x * s.size.w, onSet: v => set('headline.x', v / state.size.w) },
+    { type: 'field', icon: ICO.y, title: 'Y (px)', min: -20000, max: 20000, step: 1, scrub: 3,
+      get: s => s.headline.y * s.size.h, onSet: v => set('headline.y', v / state.size.h) },
+    { type: 'field', icon: ICO.rot, path: 'headline.rotate', title: 'Rotation', min: -90, max: 90, step: 1, scrub: 0.5, unit: '°' },
+  ] },
+  { path: 'headline.color', label: 'Colour', type: 'color' },
+  { path: 'headline.behind', label: 'Behind beams', type: 'checkbox' },
+  { label: 'Place', type: 'buttons', wide: true, buttons: [
+    { label: 'Centre', onClick: () => patch({ headline: { x: 0.5, y: 0.5, align: 'center', valign: 'middle' } }) },
+    { label: 'Top-left', onClick: () => patch({ headline: { x: 0.05, y: 0.06, align: 'left', valign: 'top' } }) },
+    { label: 'Bottom-left', onClick: () => patch({ headline: { x: 0.05, y: 0.94, align: 'left', valign: 'bottom' } }) },
+    { label: 'Bottom-right', onClick: () => patch({ headline: { x: 0.95, y: 0.94, align: 'right', valign: 'bottom' } }) },
+  ] },
+] };
+
+// The raw axes, for anything between two named instances.
+const AXES_GROUP = { title: 'Variable axes', collapsed: true, when: () => !!fontInstances(FONT).length, controls: [
+  { path: 'headline.wght', label: 'Weight', type: 'range', step: 1, decimals: 0, min: axis('wght', { min: 100, max: 900 }).min, max: axis('wght', { min: 100, max: 900 }).max, when: s => hasAxis(s.headline.font, 'wght') },
+  { path: 'headline.wdth', label: 'Width', type: 'range', step: 1, decimals: 0, min: axis('wdth', { min: 50, max: 200 }).min, max: axis('wdth', { min: 50, max: 200 }).max, when: s => hasAxis(s.headline.font, 'wdth') },
+  { path: 'headline.slnt', label: 'Slant', type: 'range', step: 0.5, decimals: 1, min: axis('slnt', { min: -20, max: 0 }).min, max: axis('slnt', { min: -20, max: 0 }).max, when: s => hasAxis(s.headline.font, 'slnt') },
+] };
+
 const SCHEMA = [
   { title: 'Shape', controls: [
     { path: 'shape.count', label: 'Beams', type: 'range', min: 1, max: 40, step: 1 },
@@ -300,7 +333,11 @@ const SCHEMA = [
     { path: 'fill.mode', label: 'Fill', type: 'seg', options: [{ value: 'solid', label: 'Solid' }, { value: 'gradient', label: 'Gradient' }, { value: 'stripes', label: 'Stripes' }] },
     { path: 'fill.colorStep', label: 'Colour step', type: 'range', min: 0, max: 4, step: 1 },
     { path: 'fill.runSpread', label: 'Colours / beam', type: 'range', min: 1, max: 4, step: 1, when: s => s.fill.mode !== 'solid' },
-    { path: 'fill.blendSpace', label: 'Transition', type: 'seg', options: [{ value: 'oklab', label: 'Smooth' }, { value: 'srgb', label: 'sRGB' }, { value: 'hard', label: 'Hard' }], when: s => s.fill.mode !== 'solid' },
+    { path: 'fill.blendSpace', label: 'Mix', type: 'seg', when: s => s.fill.mode !== 'solid', options: [
+      { value: 'oklch', label: 'Arc', title: 'Travel round the hue wheel — mixes stay saturated' },
+      { value: 'oklab', label: 'Direct', title: 'Shortest path — can pass through grey' },
+      { value: 'hard', label: 'Hard', title: 'No mixing at all: crisp colour bands' } ] },
+    { path: 'fill.vividness', label: 'Vividness', type: 'range', min: 0, max: 1, step: 0.01, when: s => s.fill.mode !== 'solid' && s.fill.blendSpace !== 'hard' },
     { path: 'fill.phase', label: 'Gradient shift', type: 'range', min: 0, max: 1, step: 0.005, decimals: 3, when: s => s.fill.mode !== 'solid' },
     { path: 'fill.stripes', label: 'Stripes', type: 'range', min: 2, max: 8, step: 1, when: s => s.fill.mode === 'stripes' },
     { path: 'fill.seam', label: 'Seam gap', type: 'range', min: 0, max: 0.6, step: 0.01, when: s => s.fill.mode === 'stripes' },
@@ -321,8 +358,8 @@ const SCHEMA = [
       { label: 'Fit duration to a seamless loop', onClick: () => { const sp = Math.abs(state.motion.speed) || 0.25; const one = 1 / sp; const n = Math.max(1, Math.round(state.motion.duration / one)); set('motion.duration', +(n * one).toFixed(2)); toast(`Duration set to ${(n * one).toFixed(2)} s (${n} colour loop${n > 1 ? 's' : ''})`); } },
     ] },
   ] },
-  textGroup('headline', 'Headline'),
-  textGroup('caption', 'Caption', true),
+  TYPE_GROUP,
+  AXES_GROUP,
   { title: 'Logo / image', collapsed: true, controls: [
     { path: 'logo.enabled', label: 'Show', type: 'checkbox' },
     { label: 'Image', type: 'file', label2: 'Choose PNG / SVG…', accept: 'image/*', onFile: (file) => { const r = new FileReader(); r.onload = () => patch({ logo: { src: r.result, enabled: true } }); r.readAsDataURL(file); } },
@@ -393,7 +430,7 @@ document.addEventListener('keydown', e => {
 // ---------- boot ----------
 buildLeft();
 { const m = videoMime(); $('#video-format').textContent = m ? (m.startsWith('video/mp4') ? '→ MP4' : '→ WebM (no MP4 in this browser)') : 'video unsupported'; }
-onFontsChanged(() => { renderFontList(); controls.refresh(); requestRender(); });
-(async () => { await restoreFonts(); await loadProjectFonts(); document.fonts.ready.then(requestRender); })();
+onFontsChanged(() => { controls.refresh(); requestRender(); });
+(async () => { await loadProjectFonts(); document.fonts.ready.then(requestRender); })();
 syncUI(); resize();
 window.studio = { get state() { return state; }, set, patch, replaceState, get time() { return time; } };
