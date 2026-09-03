@@ -1,5 +1,7 @@
 // Mockup scenes drawn on the stage canvas around a rendered asset canvas.
 import { withAlpha } from './util.js';
+import { resolveFamily } from './fonts.js';
+import { FONT } from './state.js';
 
 function rrect(ctx, x, y, w, h, r) {
   r = Math.min(r, w / 2, h / 2);
@@ -52,6 +54,17 @@ function arcText(ctx, text, cx, cy, rx, ry, startDeg, endDeg) {
 }
 
 const UI = '"Helvetica Neue", Helvetica, Arial, sans-serif';
+const RED = '#E52A1F';
+// The printed pieces are set in the brand face, so ask for the axis combination we want and
+// fall back to the base family while that variant loads.
+const neue = (px, wght = 500, wdth = 100) =>
+  `400 ${px}px "${resolveFamily(FONT, { wght, wdth, slnt: 0 })}", ${UI}`;
+// Set a line at `px`, or smaller if that is what it takes to sit inside `maxW`.
+function fitLine(ctx, text, maxW, px, wght) {
+  ctx.font = neue(px, wght, 100);
+  const w = ctx.measureText(text).width;
+  if (w > maxW) ctx.font = neue(px * (maxW / w), wght, 100);
+}
 const MS = '"Material Symbols Rounded"';
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const easeOut = t => 1 - (1 - t) ** 3;
@@ -91,6 +104,41 @@ function plane(ctx, x, y, k) {
   ctx.moveTo(x - k, y - k * 0.35); ctx.lineTo(x + k, y - k); ctx.lineTo(x + k * 0.15, y + k); ctx.lineTo(x - k * 0.1, y + k * 0.1); ctx.closePath();
   ctx.stroke();
   ctx.beginPath(); ctx.moveTo(x - k, y - k * 0.35); ctx.lineTo(x - k * 0.1, y + k * 0.1); ctx.lineTo(x + k, y - k); ctx.stroke();
+}
+
+// The red information band that runs across the foot of the printed pieces. The mark is left
+// out on purpose — it gets placed by hand — but its space is reserved so the setting holds.
+function infoPanel(ctx, x, y, w, h, opts = {}) {
+  const { place = 'BROOKLYN, NEW YORK', date = 'MAY 16',
+          lines = ['EIGHTY-NINTH ANNUAL UNIVERSITY', 'COMMENCEMENT CEREMONY'] } = opts;
+  ctx.save();
+  ctx.fillStyle = RED; ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  const cy = y + h / 2, pad = h * 0.24, gap = h * 0.30;
+  const placePx = h * 0.135, datePx = h * 0.40, linePx = h * 0.155;
+
+  // Measure the row, then shrink it as one if the piece is too narrow to take it.
+  ctx.font = neue(placePx, 600, 100); const placeW = place ? ctx.measureText(place).width : 0;
+  ctx.font = neue(datePx, 600, 100); const dateW = ctx.measureText(date).width;
+  ctx.font = neue(linePx, 400, 100); const textW = Math.max(...lines.map(l => ctx.measureText(l).width));
+  const markW = h * 0.95;                       // the space the mark will occupy
+  const total = pad * 2 + placeW + gap + markW + gap + dateW + gap + textW;
+  const k = Math.min(1, (w - pad * 2) / (total - pad * 2));
+
+  let cx = x + pad;
+  if (place && placeW * k > h * 0.2) {
+    ctx.font = neue(placePx * k, 600, 100);
+    ctx.fillText(place, cx, cy);
+    cx += placeW * k + gap * k;
+  }
+  cx += markW * k + gap * k;                    // reserved for the mark
+  ctx.font = neue(datePx * k, 600, 100);
+  ctx.fillText(date, cx, cy);
+  cx += dateW * k + gap * k;
+  ctx.font = neue(linePx * k, 400, 100);
+  const lh = linePx * k * 1.12;
+  lines.forEach((l, i) => ctx.fillText(l, cx, cy + (i - (lines.length - 1) / 2) * lh));
+  ctx.restore();
 }
 
 const R = {};
@@ -159,8 +207,10 @@ R.booklet = (ctx, W, H, img, state) => {
   placeholderLines(ctx, px + page.w * 0.1, py + page.h * 0.12, page.w * 0.5, 5, page.h * 0.035, 'rgba(255,255,255,0.7)');
   ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fillRect(px + page.w * 0.1, py + page.h * 0.36, page.w * 0.14, page.w * 0.14);
   ctx.fillStyle = state.background; for (let i = 0; i < 16; i++) { if ((i * 7) % 3) ctx.fillRect(px + page.w * (0.11 + (i % 4) * 0.03), py + page.h * 0.36 + page.w * (0.01 + Math.floor(i / 4) * 0.03), page.w * 0.02, page.w * 0.02); }
-  // front cover: the asset
-  cover(ctx, img, px + page.w, py, page.w, page.h, 0);
+  // front cover: artwork above, information band across the foot, as it prints
+  const band = page.h * 0.135;
+  cover(ctx, img, px + page.w, py, page.w, page.h - band, 0);
+  infoPanel(ctx, px + page.w, py + page.h - band, page.w, band);
   // fold
   const fg = ctx.createLinearGradient(px + page.w - W * 0.03, 0, px + page.w + W * 0.03, 0);
   fg.addColorStop(0, 'rgba(0,0,0,0)'); fg.addColorStop(0.5, 'rgba(0,0,0,0.28)'); fg.addColorStop(1, 'rgba(0,0,0,0)');
@@ -182,8 +232,6 @@ R.poster = (ctx, W, H, img, state) => {
 };
 
 R.phone = (ctx, W, H, img, state) => {
-  const g = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, H * 0.7); g.addColorStop(0, '#2a2a30'); g.addColorStop(1, '#0d0d10');
-  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   const pw = W * 0.78, ph = pw * 2.1, px = W / 2 - pw / 2, py = H / 2 - ph / 2, r = pw * 0.14;
   shadow(ctx, px, py, pw, ph, r, W * 0.06, 0.6, 0.3);
   ctx.fillStyle = '#111'; rrect(ctx, px, py, pw, ph, r); ctx.fill();
@@ -301,11 +349,20 @@ R.badge = (ctx, W, H, img, state) => {
   ctx.fillStyle = '#333'; rrect(ctx, W / 2 - bw * 0.05, by - bw * 0.02, bw * 0.1, bw * 0.06, bw * 0.01); ctx.fill();
   shadow(ctx, bx, by, bw, bh, r, W * 0.03, 0.35, 0.5);
   ctx.fillStyle = '#fff'; rrect(ctx, bx, by, bw, bh, r); ctx.fill();
-  ctx.save(); rrect(ctx, bx, by, bw, bh, r); ctx.clip(); cover(ctx, img, bx, by, bw, bh * 0.48, 0); ctx.restore();
-  ctx.fillStyle = '#111'; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-  ctx.font = `600 ${bh * 0.11}px "Helvetica Neue", Helvetica, Arial, sans-serif`; ctx.fillText('Graduate Name', bx + bw * 0.06, by + bh * 0.68);
-  ctx.fillStyle = '#E52A1F'; ctx.font = `500 ${bh * 0.055}px "Helvetica Neue", Helvetica, Arial, sans-serif`; ctx.fillText('PARSONS SCHOOL OF DESIGN · BFA 2025', bx + bw * 0.06, by + bh * 0.79);
-  ctx.fillStyle = '#999'; ctx.font = `400 ${bh * 0.045}px "Helvetica Neue", Helvetica, Arial, sans-serif`; ctx.fillText('The New School · Commencement', bx + bw * 0.06, by + bh * 0.9);
+  ctx.save();
+  rrect(ctx, bx, by, bw, bh, r); ctx.clip();
+  const art = bh * 0.44, band = bh * 0.26;
+  cover(ctx, img, bx, by, bw, art, 0);
+  // the wearer's own details, set in the brand face
+  ctx.fillStyle = '#111'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  const inset = bw * 0.06, textW = bw - inset * 2;
+  fitLine(ctx, 'GRADUATE NAME', textW, bh * 0.13, 700);
+  ctx.fillText('GRADUATE NAME', bx + inset, by + art + (bh - art - band) * 0.38);
+  ctx.fillStyle = '#6b6b73';
+  fitLine(ctx, 'PARSONS SCHOOL OF DESIGN · BFA 2025', textW, bh * 0.062, 500);
+  ctx.fillText('PARSONS SCHOOL OF DESIGN · BFA 2025', bx + inset, by + art + (bh - art - band) * 0.74);
+  infoPanel(ctx, bx, by + bh - band, bw, band, { place: '', lines: ['EIGHTY-NINTH ANNUAL', 'COMMENCEMENT CEREMONY'] });
+  ctx.restore();
 };
 
 export function drawMockup(ctx, id, W, H, img, state, enter = 1) {

@@ -39,7 +39,7 @@ export const MOCKUPS = [
   { id: 'arena',   label: 'Arena jumbotron',  ratio: 16 / 9 },
   { id: 'booklet', label: 'Program booklet',  ratio: 16 / 10 },
   { id: 'poster',  label: 'Poster on wall',   ratio: 4 / 3 },
-  { id: 'phone',   label: 'Phone story',      ratio: 9 / 16 },
+  { id: 'phone',   label: 'Phone story',      ratio: 9 / 16, bare: true },
   { id: 'social',  label: 'Social post',      ratio: 5 / 4, bare: true },
   { id: 'badge',   label: 'Name badge',       ratio: 4 / 3 },
 ];
