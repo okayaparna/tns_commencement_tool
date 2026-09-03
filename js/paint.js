@@ -1,5 +1,5 @@
 // Canvas renderer. Draws the asset into a 2D context whose transform maps (0,0)-(W,H).
-import { buildBeams, ribbonPolygon, stripeRanges, carveCentre, ribbonQuads, coreStops, visibleSpan } from './geometry.js';
+import { buildBeams, ribbonPolygon, stripeRanges, carveCentre, ribbonQuads, coreStops, mirrorStops, visibleSpan } from './geometry.js';
 import { clamp } from './util.js';
 import { resolveFamily, fontAxes } from './fonts.js';
 
@@ -83,12 +83,28 @@ export function drawBeams(ctx, state, beams) {
   ctx.globalCompositeOperation = f.blend === 'normal' ? 'source-over' : f.blend;
   ctx.globalAlpha = f.opacity;
   const ranges = stripeRanges(beams.length ? beams[0].stripes.length : 1, f.seam);
+  const across = f.axis === 'across';
   for (const b of beams) {
     const [a, z] = visibleSpan(b.pts, W, H, m * 0.05);
     b.stripes.forEach((st, j) => {
-      const g = ctx.createLinearGradient(a.x, a.y, z.x, z.y);
-      st.stops.forEach(s => g.addColorStop(Math.min(1, Math.max(0, s.pos)), s.color));
       for (const [lo, hi] of carveCentre(ranges[j], f.centreSeam)) {
+        if (across) {
+          // The palette runs edge → centre → edge, so one stroke carries the whole ramp in
+          // section. That is what lets a single stroke read as a plume rather than a wedge.
+          const stops = mirrorStops(st.stops);
+          for (const q of ribbonQuads(b.pts, b.widths, lo, hi)) {
+            const g = ctx.createLinearGradient(q.a.x, q.a.y, q.z.x, q.z.y);
+            stops.forEach(s => g.addColorStop(Math.min(1, Math.max(0, s.pos)), s.color));
+            ctx.beginPath();
+            q.poly.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+            ctx.closePath();
+            ctx.fillStyle = g;
+            ctx.fill();
+          }
+          continue;
+        }
+        const g = ctx.createLinearGradient(a.x, a.y, z.x, z.y);
+        st.stops.forEach(s => g.addColorStop(Math.min(1, Math.max(0, s.pos)), s.color));
         const poly = ribbonPolygon(b.pts, b.widths, lo, hi);
         ctx.beginPath();
         poly.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));

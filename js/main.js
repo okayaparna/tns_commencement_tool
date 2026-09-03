@@ -514,6 +514,9 @@ const SCHEMA = [
     { path: 'shape.offsetY', label: 'Offset Y', type: 'range', min: -1, max: 1, step: 0.005, decimals: 3 },
     { type: 'sublabel', text: 'Stroke & colour' },
     { path: 'fill.mode', label: 'Fill', type: 'seg', options: [{ value: 'solid', label: 'Solid' }, { value: 'gradient', label: 'Gradient' }, { value: 'stripes', label: 'Stripes' }] },
+    { path: 'fill.axis', label: 'Palette runs', type: 'seg', when: s => s.fill.mode !== 'solid', options: [
+      { value: 'length', label: 'Along', title: 'Down the length of the stroke' },
+      { value: 'across', label: 'Across', title: 'Edge to centre to edge — one stroke carries the whole ramp' } ] },
     { path: 'fill.colorStep', label: 'Colour step', type: 'range', min: 0, max: 4, step: 1 },
     { path: 'fill.runSpread', label: 'Colours / beam', type: 'range', min: 1, max: 4, step: 1, when: s => s.fill.mode !== 'solid' },
     { path: 'fill.blendSpace', label: 'Mix', type: 'seg', when: s => s.fill.mode !== 'solid', options: [

@@ -1,5 +1,5 @@
 // SVG exporter: same scene model as the canvas renderer, serialised as vector paths.
-import { buildBeams, ribbonPolygon, stripeRanges, carveCentre, ribbonQuads, coreStops, visibleSpan } from './geometry.js';
+import { buildBeams, ribbonPolygon, stripeRanges, carveCentre, ribbonQuads, coreStops, mirrorStops, visibleSpan } from './geometry.js';
 import { layoutText, getImage, logoBox, textSplit, FALLBACK_STACK, layerVars, cssWeight } from './paint.js';
 import { fontFaceCSS, variationCSS } from './fonts.js';
 import { esc } from './util.js';
@@ -27,18 +27,30 @@ export function buildSVG(state, time = 0) {
   const ranges = stripeRanges(beams.length ? beams[0].stripes.length : 1, f.seam);
   const cut = textSplit(state.headline, beams.length);
   const defs = [], body = [], bodyFront = [];
+  const across = f.axis === 'across';
   beams.forEach((b, bi) => {
     const into = bi < cut ? body : bodyFront;
     const [a, z] = visibleSpan(b.pts, W, H, m * 0.05);
     b.stripes.forEach((st, j) => {
-      const id = `g${bi}_${j}`;
-      defs.push(`<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${num(a.x)}" y1="${num(a.y)}" x2="${num(z.x)}" y2="${num(z.y)}">` +
-        st.stops.map(s => `<stop offset="${num(s.pos * 100)}%" stop-color="${s.color}"/>`).join('') + '</linearGradient>');
       const stroke = f.edge > 0 ? ` stroke="${f.edgeColor}" stroke-width="${num(f.edge * m / 1000)}" stroke-linejoin="round"` : '';
-      for (const [lo, hi] of carveCentre(ranges[j], f.centreSeam))
+      for (const [lo, hi] of carveCentre(ranges[j], f.centreSeam)) {
+        if (across) {
+          const stops = mirrorStops(st.stops).map(t => `<stop offset="${num(t.pos * 100)}%" stop-color="${t.color}"/>`).join('');
+          ribbonQuads(b.pts, b.widths, lo, hi).forEach((q, qi) => {
+            const id = `x${bi}_${j}_${qi}`;
+            defs.push(`<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${num(q.a.x)}" y1="${num(q.a.y)}" x2="${num(q.z.x)}" y2="${num(q.z.y)}">${stops}</linearGradient>`);
+            into.push(`<path d="${pathOf(q.poly)}" fill="url(#${id})"/>`);
+          });
+          continue;
+        }
+        const id = `g${bi}_${j}`;
+        defs.push(`<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${num(a.x)}" y1="${num(a.y)}" x2="${num(z.x)}" y2="${num(z.y)}">` +
+          st.stops.map(t => `<stop offset="${num(t.pos * 100)}%" stop-color="${t.color}"/>`).join('') + '</linearGradient>');
         into.push(`<path d="${pathOf(ribbonPolygon(b.pts, b.widths, lo, hi))}" fill="url(#${id})"${stroke}/>`);
+      }
     });
   });
+
   // The lit centreline: one gradient per length-wise quad, running edge to edge.
   const cores = [], coresFront = [];
   if (f.core > 0) {

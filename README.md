@@ -37,6 +37,11 @@ then visit http://localhost:8765 (ES modules do not run from `file://`).
   anchor.
 - **Woven type**: *Beams behind* says how many ribbons are drawn behind the headline. Put it
   halfway and the type threads through the pattern instead of sitting flatly on top of it.
+- **Palette runs**: *Along* puts the ramp down the length of a stroke, so one stroke is one
+  colour and the pattern comes from having many. *Across* runs it edge → centre → edge instead,
+  so a single stroke carries the whole ramp in section — rim colour, mid tones, hot centreline.
+  That is what lets one stroke read as a plume rather than a flat wedge, and it is the thing
+  *Core heat* sits on top of.
 - **Comb fan**: rays describe a stroke by its two ends — *Stroke width* at the focus and *Outer
   edge* out at the rim, with *Edge curve* easing between them — rather than by a flare piled on
   top of a base width. *Warp* bows the strokes away from the fan's axis, the outer ones most and

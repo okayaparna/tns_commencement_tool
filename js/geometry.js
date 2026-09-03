@@ -137,11 +137,12 @@ export function buildBeams(state, time = 0) {
     case 'rays': {
       const span = s.span * Math.PI / 180;
       // A stroke is described by its two ends — the width at the focus and the width out at the
-      // edge — with a curve between, rather than by a flare piled on top of a base width. Both
-      // are pegged to a fixed reference length, so they keep their meaning however far the ray
-      // actually has to run to clear the frame.
-      const lenRef = diag * 1.6;
-      const len = Math.max(lenRef, reach * 1.1), N = 40;
+      // edge — with a curve between, rather than by a flare piled on top of a base width. The
+      // profile is measured over the stretch you can see, so "outer edge" is the width where the
+      // stroke leaves the frame; pegging it to the geometric length instead made most of the
+      // ramp happen off-canvas and left the outer width unreachable.
+      const lenRef = Math.max(reach, m * 0.25);
+      const len = Math.max(lenRef * 1.06, reach * 1.1), N = 40;
       // Neighbours are span/(n-1) apart, so at lenRef they are lenRef*span/(n-1) apart: an outer
       // edge exactly that wide leaves no wedge of background between them, and the stroke has to
       // start from nothing at the focus for the fan to close up all the way in.
@@ -271,7 +272,7 @@ export function ribbonPolygon(pts, widths, f0 = -0.5, f1 = 0.5) {
 // A beam split into quads along its length, each carrying the edge-to-edge axis to paint
 // a gradient ACROSS the stroke. A single along-the-length gradient leaves every beam flat
 // in section, which is what makes it read as coloured tape; a bright centre reads as light.
-export function ribbonQuads(pts, widths) {
+export function ribbonQuads(pts, widths, f0 = -0.5, f1 = 0.5, tol = 0.05) {
   const N = pts.length, out = [];
   const normalAt = i => {
     const a = pts[Math.max(0, i - 1)], b = pts[Math.min(N - 1, i + 1)];
@@ -279,17 +280,31 @@ export function ribbonQuads(pts, widths) {
     const len = Math.hypot(tx, ty) || 1;
     return { x: -ty / len, y: tx / len };
   };
-  for (let i = 0; i < N - 1; i++) {
-    const p0 = pts[i], p1 = pts[i + 1];
-    const n0 = normalAt(i), n1 = normalAt(i + 1);
-    const w0 = widths[i] / 2, w1 = widths[i + 1] / 2;
+  const nrm = pts.map((_, i) => normalAt(i));
+  // Consecutive slices with the same cross-section axis are one quad: a straight stroke needs
+  // a single gradient, not one per sample. `tol` is the sine of the angle allowed to accumulate.
+  for (let i = 0, j = 0; i < N - 1; i = j) {
+    j = i + 1;
+    while (j < N - 1 && Math.abs(nrm[i].x * nrm[j + 1].y - nrm[i].y * nrm[j + 1].x) < tol) j++;
+    const p0 = pts[i], p1 = pts[j];
+    const n0 = nrm[i], n1 = nrm[j];
+    const w0 = widths[i] / 2, w1 = widths[j] / 2;
+    // The axis always spans the whole stroke, even when the quad covers only a sub-band, so
+    // a seam or a stripe cuts a hole in one continuous cross-section instead of restarting it.
     const a = { x: p0.x + n0.x * w0, y: p0.y + n0.y * w0 };
     const z = { x: p0.x - n0.x * w0, y: p0.y - n0.y * w0 };
-    out.push({ a, z, poly: [a,
-      { x: p1.x + n1.x * w1, y: p1.y + n1.y * w1 },
-      { x: p1.x - n1.x * w1, y: p1.y - n1.y * w1 }, z] });
+    const at = (p, nn, w, f) => ({ x: p.x + nn.x * w * f * 2, y: p.y + nn.y * w * f * 2 });
+    out.push({ a, z, poly: [at(p0, n0, w0, f1), at(p1, n1, w1, f1), at(p1, n1, w1, f0), at(p0, n0, w0, f0)] });
   }
   return out;
+}
+
+// Fold a 0..1 stop list into an edge → centre → edge ramp, so the palette reads across the
+// stroke symmetrically: the first colour on both rims, the last one down the centreline.
+export function mirrorStops(stops) {
+  const half = stops.map(s => ({ pos: s.pos / 2, color: s.color }));
+  const back = stops.slice().reverse().map(s => ({ pos: 1 - s.pos / 2, color: s.color }));
+  return half.concat(back);
 }
 
 // White-alpha profile across a stroke: nothing at the edges, `core` on the centreline.
