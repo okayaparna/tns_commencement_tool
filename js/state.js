@@ -55,7 +55,7 @@ export const MOCKUPS = [
 export const BLENDS = ['normal', 'multiply', 'screen', 'lighten', 'darken'];
 
 export const DEFAULT_STATE = {
-  version: 6,
+  version: 7,
   size: { preset: 'wide', w: 1920, h: 1080 },
   background: BRAND.blue,
   palette: [BRAND.pink, BRAND.green, BRAND.red, BRAND.blue],
@@ -90,6 +90,7 @@ export const DEFAULT_STATE = {
     stripes: 3,           // stripes mode: sub-bands per beam
     seam: 0.06,           // gap between stripes (fraction of beam width)
     centreSeam: 0,        // gap carved down the middle of every stroke, splitting it in two
+    edgeFade: 0,          // how much of the half-width dissolves to nothing at the rims
     core: 0,              // brightness of the lit centreline of each beam (0 = flat section)
     coreFocus: 2.2,       // how tightly that brightness is gathered on the centreline
     blend: 'normal',

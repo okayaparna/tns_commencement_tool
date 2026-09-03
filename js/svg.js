@@ -35,7 +35,8 @@ export function buildSVG(state, time = 0) {
       const stroke = f.edge > 0 ? ` stroke="${f.edgeColor}" stroke-width="${num(f.edge * m / 1000)}" stroke-linejoin="round"` : '';
       for (const [lo, hi] of carveCentre(ranges[j], f.centreSeam)) {
         if (across) {
-          const stops = mirrorStops(st.stops).map(t => `<stop offset="${num(t.pos * 100)}%" stop-color="${t.color}"/>`).join('');
+          const stops = mirrorStops(st.stops, f.edgeFade)
+            .map(t => `<stop offset="${num(t.pos * 100)}%" stop-color="${t.color}"${t.alpha < 1 ? ` stop-opacity="${t.alpha.toFixed(3)}"` : ''}/>`).join('');
           ribbonQuads(b.pts, b.widths, lo, hi).forEach((q, qi) => {
             const id = `x${bi}_${j}_${qi}`;
             defs.push(`<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${num(q.a.x)}" y1="${num(q.a.y)}" x2="${num(q.z.x)}" y2="${num(q.z.y)}">${stops}</linearGradient>`);

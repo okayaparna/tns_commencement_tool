@@ -1,6 +1,6 @@
 // Canvas renderer. Draws the asset into a 2D context whose transform maps (0,0)-(W,H).
 import { buildBeams, ribbonPolygon, stripeRanges, carveCentre, ribbonQuads, coreStops, mirrorStops, visibleSpan } from './geometry.js';
-import { clamp } from './util.js';
+import { clamp, withAlpha } from './util.js';
 import { resolveFamily, fontAxes } from './fonts.js';
 
 export const FALLBACK_STACK = '"Helvetica Neue", Helvetica, Arial, sans-serif';
@@ -91,10 +91,10 @@ export function drawBeams(ctx, state, beams) {
         if (across) {
           // The palette runs edge → centre → edge, so one stroke carries the whole ramp in
           // section. That is what lets a single stroke read as a plume rather than a wedge.
-          const stops = mirrorStops(st.stops);
+          const stops = mirrorStops(st.stops, f.edgeFade);
           for (const q of ribbonQuads(b.pts, b.widths, lo, hi)) {
             const g = ctx.createLinearGradient(q.a.x, q.a.y, q.z.x, q.z.y);
-            stops.forEach(s => g.addColorStop(Math.min(1, Math.max(0, s.pos)), s.color));
+            stops.forEach(s => g.addColorStop(clamp(s.pos, 0, 1), s.alpha < 1 ? withAlpha(s.color, s.alpha) : s.color));
             ctx.beginPath();
             q.poly.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
             ctx.closePath();

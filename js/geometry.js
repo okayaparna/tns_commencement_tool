@@ -142,7 +142,7 @@ export function buildBeams(state, time = 0) {
       // stroke leaves the frame; pegging it to the geometric length instead made most of the
       // ramp happen off-canvas and left the outer width unreachable.
       const lenRef = Math.max(reach, m * 0.25);
-      const len = Math.max(lenRef * 1.06, reach * 1.1), N = 40;
+      const len = Math.max(lenRef * 1.06, reach * 1.1), N = 96;
       // Neighbours are span/(n-1) apart, so at lenRef they are lenRef*span/(n-1) apart: an outer
       // edge exactly that wide leaves no wedge of background between them, and the stroke has to
       // start from nothing at the focus for the fan to close up all the way in.
@@ -272,7 +272,7 @@ export function ribbonPolygon(pts, widths, f0 = -0.5, f1 = 0.5) {
 // A beam split into quads along its length, each carrying the edge-to-edge axis to paint
 // a gradient ACROSS the stroke. A single along-the-length gradient leaves every beam flat
 // in section, which is what makes it read as coloured tape; a bright centre reads as light.
-export function ribbonQuads(pts, widths, f0 = -0.5, f1 = 0.5, tol = 0.05) {
+export function ribbonQuads(pts, widths, f0 = -0.5, f1 = 0.5, tol = 0.05, wtol = 0.012) {
   const N = pts.length, out = [];
   const normalAt = i => {
     const a = pts[Math.max(0, i - 1)], b = pts[Math.min(N - 1, i + 1)];
@@ -281,11 +281,16 @@ export function ribbonQuads(pts, widths, f0 = -0.5, f1 = 0.5, tol = 0.05) {
     return { x: -ty / len, y: tx / len };
   };
   const nrm = pts.map((_, i) => normalAt(i));
-  // Consecutive slices with the same cross-section axis are one quad: a straight stroke needs
-  // a single gradient, not one per sample. `tol` is the sine of the angle allowed to accumulate.
+  // Consecutive slices merge into one quad only when the cross-section is genuinely the same:
+  // parallel within `tol` (the sine of the angle allowed to accumulate) AND the same width
+  // within `wtol`. Width matters because the caller hangs a gradient off the quad's own end
+  // section — merge across a taper and that gradient gets stretched over a stroke it no longer
+  // spans, which collapses the fill onto the centreline.
   for (let i = 0, j = 0; i < N - 1; i = j) {
     j = i + 1;
-    while (j < N - 1 && Math.abs(nrm[i].x * nrm[j + 1].y - nrm[i].y * nrm[j + 1].x) < tol) j++;
+    while (j < N - 1
+      && Math.abs(nrm[i].x * nrm[j + 1].y - nrm[i].y * nrm[j + 1].x) < tol
+      && Math.abs(widths[j + 1] - widths[i]) <= wtol * Math.max(widths[i], widths[j + 1], 1e-6)) j++;
     const p0 = pts[i], p1 = pts[j];
     const n0 = nrm[i], n1 = nrm[j];
     const w0 = widths[i] / 2, w1 = widths[j] / 2;
@@ -301,10 +306,18 @@ export function ribbonQuads(pts, widths, f0 = -0.5, f1 = 0.5, tol = 0.05) {
 
 // Fold a 0..1 stop list into an edge → centre → edge ramp, so the palette reads across the
 // stroke symmetrically: the first colour on both rims, the last one down the centreline.
-export function mirrorStops(stops) {
-  const half = stops.map(s => ({ pos: s.pos / 2, color: s.color }));
-  const back = stops.slice().reverse().map(s => ({ pos: 1 - s.pos / 2, color: s.color }));
-  return half.concat(back);
+// `fade` carries an alpha ramp with it — a stroke that ends on a hard edge reads as a wedge of
+// paint however good the colours are; one that dissolves into the ground reads as light.
+export function mirrorStops(stops, fade = 0) {
+  const alphaAt = pos => {
+    if (!(fade > 0)) return 1;
+    const u = Math.abs(pos - 0.5) * 2;          // 0 on the centreline, 1 at the rim
+    return clamp(1 - u, 0, 1) >= fade ? 1 : Math.pow(clamp((1 - u) / fade, 0, 1), 0.75);
+  };
+  const out = [];
+  for (const t of stops) out.push({ pos: t.pos / 2, color: t.color });
+  for (const t of stops.slice().reverse()) out.push({ pos: 1 - t.pos / 2, color: t.color });
+  return out.map(t => ({ ...t, alpha: alphaAt(t.pos) }));
 }
 
 // White-alpha profile across a stroke: nothing at the edges, `core` on the centreline.

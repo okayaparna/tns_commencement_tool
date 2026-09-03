@@ -41,7 +41,9 @@ then visit http://localhost:8765 (ES modules do not run from `file://`).
   colour and the pattern comes from having many. *Across* runs it edge → centre → edge instead,
   so a single stroke carries the whole ramp in section — rim colour, mid tones, hot centreline.
   That is what lets one stroke read as a plume rather than a flat wedge, and it is the thing
-  *Core heat* sits on top of.
+  *Core heat* sits on top of. **Edge fade** carries an alpha ramp with that section: how much of
+  the half-width dissolves into the ground at the rims. A stroke that ends on a hard edge reads
+  as a wedge of paint however good its colours are; one that dissolves reads as light.
 - **Comb fan**: rays describe a stroke by its two ends — *Stroke width* at the focus and *Outer
   edge* out at the rim, with *Edge curve* easing between them — rather than by a flare piled on
   top of a base width. *Warp* bows the strokes away from the fan's axis, the outer ones most and
