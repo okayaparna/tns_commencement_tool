@@ -1,5 +1,5 @@
 // Canvas renderer. Draws the asset into a 2D context whose transform maps (0,0)-(W,H).
-import { buildBeams, ribbonPolygon, stripeRanges, carveCentre, ribbonQuads, coreStops, mirrorStops, fadeStops, sampleStops, visibleSpan } from './geometry.js';
+import { buildBeams, ribbonPolygon, stripeRanges, carveCentre, ribbonQuads, coreStops, mirrorStops, visibleSpan } from './geometry.js';
 import { clamp, withAlpha } from './util.js';
 import { resolveFamily, fontAxes } from './fonts.js';
 
@@ -84,29 +84,10 @@ export function drawBeams(ctx, state, beams) {
   ctx.globalAlpha = f.opacity;
   const ranges = stripeRanges(beams.length ? beams[0].stripes.length : 1, f.seam);
   const across = f.axis === 'across';
-  const fade = f.edgeFade > 0 ? f.edgeFade : 0;
   for (const b of beams) {
     const [a, z] = visibleSpan(b.pts, W, H, m * 0.05);
     b.stripes.forEach((st, j) => {
       for (const [lo, hi] of carveCentre(ranges[j], f.centreSeam)) {
-        // Soft rims need a gradient across the stroke, so a faded stroke goes down the slice
-        // path whichever way its palette runs — the slice just carries one colour when the
-        // palette runs lengthwise.
-        if (!across && fade) {
-          const prof = fadeStops(fade);
-          const qs = ribbonQuads(b.pts, b.widths, lo, hi, 0, 0);
-          qs.forEach((q, qi) => {
-            const col = sampleStops(st.stops, qs.length < 2 ? 0.5 : qi / (qs.length - 1));
-            const g = ctx.createLinearGradient(q.a.x, q.a.y, q.z.x, q.z.y);
-            prof.forEach(p => g.addColorStop(p.pos, p.alpha < 1 ? withAlpha(col, p.alpha) : col));
-            ctx.beginPath();
-            q.poly.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
-            ctx.closePath();
-            ctx.fillStyle = g;
-            ctx.fill();
-          });
-          continue;
-        }
         if (across) {
           // The palette runs edge → centre → edge, so one stroke carries the whole ramp in
           // section. That is what lets a single stroke read as a plume rather than a wedge.

@@ -1,6 +1,6 @@
 // Turns the document state into a list of beams (ribbons) in asset pixel space.
 // A beam = centreline points + per-point widths + colour sets (one per stripe).
-import { mulberry32, lerp, clamp, TAU, cycleColorOklab, cycleColorOklch, mixHex, mod } from './util.js';
+import { mulberry32, lerp, clamp, TAU, cycleColorOklab, cycleColorOklch, mod } from './util.js';
 
 const bell = (t, width = 0.18) => Math.exp(-(((t - 0.5) / width) ** 2));
 
@@ -318,30 +318,6 @@ export function mirrorStops(stops, fade = 0) {
   for (const t of stops) out.push({ pos: t.pos / 2, color: t.color });
   for (const t of stops.slice().reverse()) out.push({ pos: 1 - t.pos / 2, color: t.color });
   return out.map(t => ({ ...t, alpha: alphaAt(t.pos) }));
-}
-
-// Colour at position t along a stop list, so a cross-slice can pick up the colour the
-// along-the-length gradient would have had there.
-export function sampleStops(stops, t) {
-  if (!stops.length) return '#000000';
-  if (t <= stops[0].pos) return stops[0].color;
-  for (let i = 1; i < stops.length; i++) {
-    if (t <= stops[i].pos) {
-      const span = stops[i].pos - stops[i - 1].pos;
-      return span < 1e-6 ? stops[i].color : mixHex(stops[i - 1].color, stops[i].color, (t - stops[i - 1].pos) / span);
-    }
-  }
-  return stops[stops.length - 1].color;
-}
-
-// The alpha ramp across a stroke on its own, for slices that carry a single colour.
-export function fadeStops(fade, steps = 15) {
-  const out = [];
-  for (let i = 0; i < steps; i++) {
-    const pos = i / (steps - 1), u = Math.abs(pos - 0.5) * 2;
-    out.push({ pos, alpha: 1 - u >= fade ? 1 : Math.pow(clamp((1 - u) / fade, 0, 1), 0.75) });
-  }
-  return out;
 }
 
 // White-alpha profile across a stroke: nothing at the edges, `core` on the centreline.

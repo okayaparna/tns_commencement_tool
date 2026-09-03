@@ -26,12 +26,10 @@ then visit http://localhost:8765 (ES modules do not run from `file://`).
   tape; with it the stroke reads as light. Pair it with a black background — light adds where
   beams cross, so overlaps stay clean instead of averaging toward grey. *Core focus* takes it from
   a broad wash to a hot filament.
-- **Mix**: how colours meet. *Hard* is the default and does not mix at all — only the palette's
-  own colours, in crisp bands. Four widely-spaced brand hues cannot be interpolated without
-  inventing colours that are not the brand's: pink into green passes through amber whichever
-  path you take, which is right for a palette of neighbours and wrong for this one. *Arc*
-  rotates round the hue wheel when you do want a smooth mix, *Direct* takes the straight OKLab
-  line, and **Vividness** holds mid-gradient chroma up toward the more saturated end.
+- **Mix**: how colours travel along a beam. *Arc* rotates round the hue wheel, so pink → green
+  passes through amber instead of the grey that a straight OKLab line runs through; *Direct* is
+  that straight line; *Hard* does not mix at all (crisp bands, closest to the 2025 posters).
+  **Vividness** holds mid-gradient chroma up toward the more saturated of the two colours.
 - **Direct manipulation**: drag the headline to move it and its corner grip to scale it, right on
   the canvas — and inside a mockup too, tilted booklet included, since the stage inverts whatever
   transform the mockup used. Positions snap to centre and thirds; hold Shift to disable. The
@@ -45,9 +43,7 @@ then visit http://localhost:8765 (ES modules do not run from `file://`).
   That is what lets one stroke read as a plume rather than a flat wedge, and it is the thing
   *Core heat* sits on top of. **Edge fade** carries an alpha ramp with that section: how much of
   the half-width dissolves into the ground at the rims. A stroke that ends on a hard edge reads
-  as a wedge of paint however good its colours are; one that dissolves reads as light. It works
-  whichever way the palette runs. Both are on by default, along with a little core heat; the four
-  brand Looks pin themselves flat and hard-edged, since that is the poster language.
+  as a wedge of paint however good its colours are; one that dissolves reads as light.
 - **Comb fan**: rays describe a stroke by its two ends — *Stroke width* at the focus and *Outer
   edge* out at the rim, with *Edge curve* easing between them — rather than by a flare piled on
   top of a base width. *Warp* bows the strokes away from the fan's axis, the outer ones most and
