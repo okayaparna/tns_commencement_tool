@@ -58,6 +58,7 @@
         <label>H <input type="number" id="size-h" min="16" max="8000"></label>
         <button id="btn-swap-size" class="small" title="Swap width and height">⇄</button>
       </div>
+      <label class="toggle row-toggle"><input type="checkbox" id="guides-toggle"> Guides &amp; anchor</label>
     </section>
   </aside>
 
@@ -69,7 +70,6 @@
     <div class="stagebar">
       <label>Mockup <select id="mockup"></select></label>
       <label class="toggle"><input type="checkbox" id="motion-toggle"> Motion</label>
-      <label class="toggle"><input type="checkbox" id="guides-toggle"> Guides</label>
       <span class="spacer"></span>
       <label>PNG scale <select id="png-scale"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option></select></label>
       <label>Video <input type="number" id="video-duration" min="1" max="60" step="0.5" style="width:56px"> s</label>
@@ -77,7 +77,13 @@
     </div>
   </section>
 
-  <aside class="panel right" id="controls"></aside>
+  <aside class="panel right">
+    <div class="panel-tabs">
+      <button type="button" data-tab="design" class="active">Design</button>
+      <button type="button" data-tab="motion">Motion</button>
+    </div>
+    <div id="controls"></div>
+  </aside>
 </main>
 
 <div id="toast" class="toast" hidden></div>

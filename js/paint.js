@@ -1,5 +1,6 @@
 // Canvas renderer. Draws the asset into a 2D context whose transform maps (0,0)-(W,H).
 import { buildBeams, ribbonPolygon, stripeRanges, ribbonQuads, coreStops } from './geometry.js';
+import { clamp } from './util.js';
 import { resolveFamily, fontAxes } from './fonts.js';
 
 export const FALLBACK_STACK = '"Helvetica Neue", Helvetica, Arial, sans-serif';
@@ -74,6 +75,7 @@ export function drawLogo(ctx, logo, W, H, onload) {
 }
 
 export function drawBeams(ctx, state, beams) {
+  if (!beams.length) return;
   const { w: W, h: H } = state.size;
   const f = state.fill;
   const m = Math.min(W, H);
@@ -122,15 +124,23 @@ export function drawCores(ctx, state, beams) {
   ctx.restore();
 }
 
+// Where the text sits in the beam stack. depth 1 puts every beam behind it, 0 puts every
+// beam in front, and anything between weaves the type through the ribbons.
+export function textSplit(layer, count) {
+  const d = layer.depth == null ? 1 : clamp(layer.depth, 0, 1);
+  return Math.round(d * count);
+}
+
 export function renderAsset(ctx, state, time = 0, hooks = {}) {
   const { w: W, h: H } = state.size;
   const beams = buildBeams(state, time);
+  const cut = textSplit(state.headline, beams.length);
   ctx.save();
   ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.clip();
   ctx.fillStyle = state.background; ctx.fillRect(0, 0, W, H);
-  if (state.headline.behind) drawTextLayer(ctx, state.headline, W, H);
-  drawBeams(ctx, state, beams);
-  if (!state.headline.behind) drawTextLayer(ctx, state.headline, W, H);
+  drawBeams(ctx, state, beams.slice(0, cut));
+  drawTextLayer(ctx, state.headline, W, H);
+  drawBeams(ctx, state, beams.slice(cut));
   drawLogo(ctx, state.logo, W, H, hooks.onImageLoad);
   ctx.restore();
   return beams;

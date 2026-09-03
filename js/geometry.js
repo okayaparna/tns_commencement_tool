@@ -89,7 +89,15 @@ export function buildBeams(state, time = 0) {
   const nor = { x: -dir.y, y: dir.x };
   const local = (u, v) => ({ x: anchor.x + u * dir.x + v * nor.x, y: anchor.y + u * dir.y + v * nor.y });
   const frac = i => (n === 1 ? 0.5 : i / (n - 1));
-  const widthOf = i => m * s.baseWidth * Math.max(0.15, 1 + J[i].w * 2 * s.widthVariation);
+  // `pack` closes the gaps: it drives each beam's width toward the spacing between
+  // neighbours, so they meet edge to edge, and quiets the jitter that would reopen them.
+  const pack = clamp(s.pack ?? 0, 0, 1);
+  const gap = 1 - pack;
+  const spacing = tgt => (n > 1 ? tgt / (n - 1) : m * s.baseWidth);
+  const widthOf = (i, packed) => {
+    const base = m * s.baseWidth * Math.max(0.15, 1 + J[i].w * 2 * s.widthVariation * gap);
+    return packed == null ? base : lerp(base, packed, pack);
+  };
 
   const beams = [];
   const push = (i, pts, widths) => beams.push({ i, pts, widths });
@@ -118,16 +126,20 @@ export function buildBeams(state, time = 0) {
   switch (s.template) {
     case 'rays': {
       const span = s.span * Math.PI / 180;
+      const len = diag * 1.6, N = 40;
+      // Neighbours are span/(n-1) apart, so at distance d they are d*span/(n-1) apart.
+      // A flare that grows at exactly that rate leaves no wedge of background between them.
+      const flare = lerp(s.flare, n > 1 ? len * span / ((n - 1) * m) : s.flare, pack);
+      const flareCurve = lerp(s.flareCurve, 1, pack);
       for (let i = 0; i < n; i++) {
-        const a = ang - span / 2 + span * frac(i) + J[i].a * s.jitter * span / Math.max(2, n - 1);
+        const a = ang - span / 2 + span * frac(i) + J[i].a * s.jitter * gap * span / Math.max(2, n - 1);
         const d = { x: Math.cos(a), y: Math.sin(a) };
-        const len = diag * 1.6, N = 40;
         const t0 = s.twoSided ? -1 : 0;
         const pts = [], widths = [];
         for (let k = 0; k <= N; k++) {
           const t = lerp(t0, 1, k / N);
           pts.push({ x: anchor.x + d.x * t * len, y: anchor.y + d.y * t * len });
-          widths.push(widthOf(i) + m * s.flare * Math.pow(Math.abs(t), s.flareCurve));
+          widths.push(widthOf(i) + m * flare * Math.pow(Math.abs(t), flareCurve));
         }
         push(i, pts, widths);
       }
@@ -136,11 +148,11 @@ export function buildBeams(state, time = 0) {
     case 'weave': {
       const span = s.span * Math.PI / 180;
       for (let i = 0; i < n; i++) {
-        const a = ang + (frac(i) - 0.5) * span + J[i].a * s.jitter * span * 0.6;
+        const a = ang + (frac(i) - 0.5) * span + J[i].a * s.jitter * gap * span * 0.6;
         const d = { x: Math.cos(a), y: Math.sin(a) }, nn = { x: -d.y, y: d.x };
-        const off = (frac(i) - 0.5) * s.spread * m + J[i].o * s.jitter * m * 0.35;
+        const off = (frac(i) - 0.5) * s.spread * m + J[i].o * s.jitter * gap * m * 0.35;
         const c = { x: anchor.x + nn.x * off, y: anchor.y + nn.y * off };
-        const w = widthOf(i);
+        const w = widthOf(i, spacing(s.spread * m));
         const seg = clipToView({ x: c.x - d.x * diag * 4, y: c.y - d.y * diag * 4 }, { x: c.x + d.x * diag * 4, y: c.y + d.y * diag * 4 }, w);
         if (!seg) continue;
         push(i, sampleLine(seg[0], seg[1], 8), new Array(9).fill(w));
@@ -151,9 +163,12 @@ export function buildBeams(state, time = 0) {
       const L = diag * 1.3;
       const order = [...Array(n).keys()].sort((a, b) => J[a].s - J[b].s); // shuffled exits so ribbons cross
       for (let i = 0; i < n; i++) {
-        const vA = (frac(i) - 0.5) * s.spread * H + J[i].o * s.jitter * H * 0.25;
-        const vB = (frac(order[i]) - 0.5) * s.spread * H + J[i].a * s.jitter * H * 0.25;
-        const vM = J[i].c * s.jitter * m * 0.06 * (i % 2 ? 1 : -1);
+        const vA = (frac(i) - 0.5) * s.spread * H + J[i].o * s.jitter * gap * H * 0.25;
+        // Shuffled exits make the ribbons cross, but they also stop the ends tiling. As pack
+        // rises the exits settle into a straight reversal — a clean X, flush at both edges.
+        const vB = lerp((frac(order[i]) - 0.5) * s.spread * H, (frac(n - 1 - i) - 0.5) * s.spread * H, pack)
+          + J[i].a * s.jitter * gap * H * 0.25;
+        const vM = J[i].c * s.jitter * gap * m * 0.06 * (i % 2 ? 1 : -1);
         const A = { x: -L / 2, y: vA }, M = { x: 0, y: vM }, B = { x: L / 2, y: vB };
         const k = s.tension * L / 2;
         const N = 30, pts = [], widths = [];
@@ -163,7 +178,7 @@ export function buildBeams(state, time = 0) {
             ? cubic(A, { x: A.x + k, y: A.y }, { x: M.x - k * 0.6, y: M.y }, M, t * 2)
             : cubic(M, { x: M.x + k * 0.6, y: M.y }, { x: B.x - k, y: B.y }, B, (t - 0.5) * 2);
           pts.push(local(p.x, p.y));
-          widths.push(widthOf(i) * (1 - s.pinch * bell(t, 0.16)));
+          widths.push(widthOf(i, spacing(s.spread * H)) * (1 - s.pinch * bell(t, 0.16)));
         }
         push(i, pts, widths);
       }

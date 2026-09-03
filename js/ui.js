@@ -14,11 +14,13 @@ export function buildControls(container, groups, ctx) {
   const refreshers = [];
   for (const g of groups) {
     const box = el('div', 'group');
-    const h = el('h3', null, g.title);
-    h.addEventListener('click', () => box.classList.toggle('collapsed'));
-    if (g.collapsed) box.classList.add('collapsed');
     const list = el('div', 'ctrls');
-    box.append(h, list);
+    if (g.title) {
+      const h = el('h3', null, g.title);
+      h.addEventListener('click', () => box.classList.toggle('collapsed'));
+      if (g.collapsed) box.classList.add('collapsed');
+      box.append(h, list);
+    } else box.appendChild(list);
     container.appendChild(box);
     for (const c of g.controls) {
       const { row, refresh } = makeRow(c, ctx);
@@ -30,7 +32,10 @@ export function buildControls(container, groups, ctx) {
         if (vis) refresh(s);
       });
     }
-    refreshers.push(() => { box.hidden = !!g.when && !g.when(ctx.getState()); });
+    refreshers.push(() => {
+      const offTab = g.tab && ctx.tab && ctx.tab() !== g.tab;
+      box.hidden = !!offTab || (!!g.when && !g.when(ctx.getState()));
+    });
   }
   const refresh = () => refreshers.forEach(f => f());
   refresh();
@@ -51,15 +56,22 @@ function makeInput(c, ctx) {
   const write = v => (c.onSet ? c.onSet(v, ctx) : ctx.set(c.path, v, c));
   const read = s => (c.get ? c.get(s) : getPath(s, c.path));
   switch (c.type) {
+    // A filled pill: the fill shows where you are in the range, the number sits inside it,
+    // and the whole width is the track — no hunting for a 12px thumb.
     case 'range': {
       const wrap = el('div', 'range');
+      const fill = el('span', 'fill');
       const r = el('input'); r.type = 'range'; r.min = c.min; r.max = c.max; r.step = c.step ?? 0.01;
       const v = el('input', 'val'); v.type = 'text';
-      const fmt = x => (c.fmt ? c.fmt(x) : Number(x).toFixed(c.decimals ?? (c.step >= 1 ? 0 : 2)));
-      r.addEventListener('input', () => { write(parseFloat(r.value)); v.value = fmt(r.value); });
-      v.addEventListener('change', () => { const n = parseFloat(v.value); if (!isNaN(n)) { write(n); r.value = n; v.value = fmt(n); } });
-      wrap.append(r, v);
-      return { node: wrap, refresh: s => { const x = read(s); r.value = x; if (document.activeElement !== v) v.value = fmt(x); } };
+      const fmt = x => (c.fmt ? c.fmt(x) : Number(x).toFixed(c.decimals ?? (c.step >= 1 ? 0 : 2))) + (c.unit || '');
+      const paint = x => { fill.style.width = `${((x - c.min) / (c.max - c.min)) * 100}%`; };
+      r.addEventListener('input', () => { write(parseFloat(r.value)); v.value = fmt(r.value); paint(r.value); });
+      v.addEventListener('change', () => {
+        const n = parseFloat(v.value);
+        if (!isNaN(n)) { write(n); r.value = n; v.value = fmt(n); paint(n); }
+      });
+      wrap.append(fill, r, v);
+      return { node: wrap, refresh: s => { const x = read(s); r.value = x; paint(x); if (document.activeElement !== v) v.value = fmt(x); } };
     }
     case 'select': return makeSelect(c, read, write);
     case 'field': return makeField(c, read, write);

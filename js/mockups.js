@@ -7,12 +7,20 @@ function rrect(ctx, x, y, w, h, r) {
   ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
   ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
 }
+// Where the asset landed in the scene, so the stage can map pointer positions back into
+// asset space and let you drag the type around inside a mockup.
+let placement = null;
+export const lastPlacement = () => placement;
+
 // Draw `img` covering the box, clipped to a rounded rect.
 function cover(ctx, img, x, y, w, h, r = 0) {
   const s = Math.max(w / img.width, h / img.height);
   const dw = img.width * s, dh = img.height * s;
   ctx.save(); rrect(ctx, x, y, w, h, r); ctx.clip();
-  ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
+  const dx = x + (w - dw) / 2, dy = y + (h - dh) / 2;
+  // Record the full transform in force, so a rotated mockup inverts correctly too.
+  placement = { matrix: ctx.getTransform(), dx, dy, dw, dh };
+  ctx.drawImage(img, dx, dy, dw, dh);
   ctx.restore();
 }
 function shadow(ctx, x, y, w, h, r, blur, alpha = 0.35, dy = 0.4) {
@@ -181,8 +189,10 @@ R.badge = (ctx, W, H, img, state) => {
 };
 
 export function drawMockup(ctx, id, W, H, img, state) {
+  placement = null;
   const fn = R[id];
-  if (!fn) { ctx.drawImage(img, 0, 0, W, H); return; }
+  if (!fn) { placement = { matrix: ctx.getTransform(), dx: 0, dy: 0, dw: W, dh: H }; ctx.drawImage(img, 0, 0, W, H); return placement; }
   ctx.save(); fn(ctx, W, H, img, state); ctx.restore();
+  return placement;
 }
 export const MOCKUP_EXPORT_LONG_SIDE = 2400;

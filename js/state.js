@@ -58,6 +58,7 @@ export const DEFAULT_STATE = {
     twoSided: true,       // rays: extend through the focus both ways
     pinch: 0.35,          // streamers: narrowing at the merge point (0..1)
     tension: 0.45,        // streamers: curve tension
+    pack: 0,              // 0..1 close the gaps: widths grow toward the spacing between beams
     jitter: 0.5,          // 0..1 randomness in angle / offset
     seed: 7,
     rotate: 0, scale: 1, offsetX: 0, offsetY: 0,
@@ -94,7 +95,8 @@ export const DEFAULT_STATE = {
     letterSpacing: -0.04, // em
     lineHeight: 0.86,
     color: BRAND.white, x: 0.5, y: 0.5, align: 'center', valign: 'middle',
-    behind: false, rotate: 0,
+    depth: 1,             // share of beams drawn behind the text: 1 = all, 0 = none, between = woven
+    rotate: 0,
   },
   logo: { enabled: false, src: null, x: 0.96, y: 0.05, width: 0.12, align: 'right', valign: 'top', opacity: 1 },
   mockup: { id: 'none', showGuides: true },

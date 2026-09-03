@@ -27,12 +27,21 @@ then visit http://localhost:8765 (ES modules do not run from `file://`).
   passes through amber instead of the grey that a straight OKLab line runs through; *Direct* is
   that straight line; *Hard* does not mix at all (crisp bands, closest to the 2025 posters).
   **Vividness** holds mid-gradient chroma up toward the more saturated of the two colours.
-- **Align**: drag the anchor handle, headline or logo directly on the canvas
-  (snaps to centre and thirds; hold Shift to disable, Alt-drag to jump the anchor).
+- **Direct manipulation**: drag the headline to move it and its corner grip to scale it, right on
+  the canvas — and inside a mockup too, tilted booklet included, since the stage inverts whatever
+  transform the mockup used. Positions snap to centre and thirds; hold Shift to disable. The
+  anchor handle and centre lines come with *Guides & anchor* under Canvas; Alt-drag jumps the
+  anchor.
+- **Woven type**: *Beams behind* says how many ribbons are drawn behind the headline. Put it
+  halfway and the type threads through the pattern instead of sitting flatly on top of it.
+- **Pack**: closes the gaps. Each beam's width grows toward the spacing between its neighbours,
+  so they meet edge to edge — a flare that keeps pace with the fan for rays, and for streamers
+  the shuffled exits settle into a clean X that stays flush at both edges. Streamers with *Curve*
+  at 0 are two straight runs through the crossing point.
 - **Sizes**: presets for screen, social, story, poster, program cover/spread, arena ribbon,
   banner, badge, or custom pixel sizes.
 - **Mockups**: arena jumbotron, program booklet, poster on wall, phone story, social post, name badge.
-- **Motion**: colour run, sway, anchor drift; "fit duration to a seamless loop".
+- **Motion**: its own tab — colour run, sway, anchor drift; "fit duration to a seamless loop".
 - **Export**: one button with the file type on its chevron — PNG (0.5× / 1× / 2×), SVG (vector,
   font embedded), video (MP4 in Chrome 126+ / Safari, WebM elsewhere), or the preset as JSON.
   Core light adds a gradient per length-wise slice, so it roughly doubles SVG file size.
@@ -53,6 +62,9 @@ Font files themselves are gitignored, since they are licensed. They live in `fon
 load at runtime. Anyone else cloning this repo needs to copy them in separately.
 
 Keyboard: `Space` play/pause, `R` shuffle seed, `G` guides, `⌘Z` undo.
+
+The right-hand panel splits the way Figma's does: **Design** (Beams, Typography, Logos) and
+**Motion**.
 
 ## Layout
 

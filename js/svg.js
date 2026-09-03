@@ -1,6 +1,6 @@
 // SVG exporter: same scene model as the canvas renderer, serialised as vector paths.
 import { buildBeams, ribbonPolygon, stripeRanges, ribbonQuads, coreStops } from './geometry.js';
-import { layoutText, getImage, logoBox, FALLBACK_STACK, layerVars, cssWeight } from './paint.js';
+import { layoutText, getImage, logoBox, textSplit, FALLBACK_STACK, layerVars, cssWeight } from './paint.js';
 import { fontFaceCSS, variationCSS } from './fonts.js';
 import { esc } from './util.js';
 
@@ -25,26 +25,28 @@ export function buildSVG(state, time = 0) {
   const m = Math.min(W, H);
   const beams = buildBeams(state, time);
   const ranges = stripeRanges(beams.length ? beams[0].stripes.length : 1, f.seam);
-  const defs = [], body = [];
+  const cut = textSplit(state.headline, beams.length);
+  const defs = [], body = [], bodyFront = [];
   beams.forEach((b, bi) => {
+    const into = bi < cut ? body : bodyFront;
     const a = b.pts[0], z = b.pts[b.pts.length - 1];
     b.stripes.forEach((st, j) => {
       const id = `g${bi}_${j}`;
       defs.push(`<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${num(a.x)}" y1="${num(a.y)}" x2="${num(z.x)}" y2="${num(z.y)}">` +
         st.stops.map(s => `<stop offset="${num(s.pos * 100)}%" stop-color="${s.color}"/>`).join('') + '</linearGradient>');
       const stroke = f.edge > 0 ? ` stroke="${f.edgeColor}" stroke-width="${num(f.edge * m / 1000)}" stroke-linejoin="round"` : '';
-      body.push(`<path d="${pathOf(ribbonPolygon(b.pts, b.widths, ranges[j][0], ranges[j][1]))}" fill="url(#${id})"${stroke}/>`);
+      into.push(`<path d="${pathOf(ribbonPolygon(b.pts, b.widths, ranges[j][0], ranges[j][1]))}" fill="url(#${id})"${stroke}/>`);
     });
   });
   // The lit centreline: one gradient per length-wise quad, running edge to edge.
-  const cores = [];
+  const cores = [], coresFront = [];
   if (f.core > 0) {
     const stops = coreStops(f.core, f.coreFocus)
       .map(s => `<stop offset="${num(s.pos * 100)}%" stop-color="#FFFFFF" stop-opacity="${s.alpha}"/>`).join('');
     beams.forEach((b, bi) => ribbonQuads(b.pts, b.widths).forEach((q, qi) => {
       const id = `c${bi}_${qi}`;
       defs.push(`<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${num(q.a.x)}" y1="${num(q.a.y)}" x2="${num(q.z.x)}" y2="${num(q.z.y)}">${stops}</linearGradient>`);
-      cores.push(`<path d="${pathOf(q.poly)}" fill="url(#${id})"/>`);
+      (bi < cut ? cores : coresFront).push(`<path d="${pathOf(q.poly)}" fill="url(#${id})"/>`);
     }));
   }
   const blend = f.blend !== 'normal' ? ` style="mix-blend-mode:${f.blend}"` : '';
@@ -55,12 +57,14 @@ export function buildSVG(state, time = 0) {
     const img = getImage(state.logo.src);
     if (img) { const bx = logoBox(state.logo, W, H, img); logo = `<image href="${state.logo.src}" x="${num(bx.x)}" y="${num(bx.y)}" width="${num(bx.w)}" height="${num(bx.h)}" opacity="${state.logo.opacity}"/>`; }
   }
-  const behind = state.headline.behind ? textSVG(state.headline, W, H) : '';
-  const front = state.headline.behind ? '' : textSVG(state.headline, W, H);
+  const text = textSVG(state.headline, W, H);
+  const layer = (paths, core) =>
+    (paths.length ? `<g opacity="${f.opacity}"${blend}>${paths.join('')}</g>` : '') +
+    (core.length ? `<g opacity="${f.opacity}">${core.join('')}</g>` : '');
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
 <defs>${css ? `<style>${css}</style>` : ''}<clipPath id="frame"><rect width="${W}" height="${H}"/></clipPath>${defs.join('')}</defs>
 <rect width="${W}" height="${H}" fill="${state.background}"/>
-<g clip-path="url(#frame)">${behind}<g opacity="${f.opacity}"${blend}>${body.join('')}</g>${cores.length ? `<g opacity="${f.opacity}">${cores.join('')}</g>` : ''}${front}${logo}</g>
+<g clip-path="url(#frame)">${layer(body, cores)}${text}${layer(bodyFront, coresFront)}${logo}</g>
 </svg>`;
 }

@@ -1,8 +1,8 @@
 import { DEFAULT_STATE, SIZE_PRESETS, TEMPLATES, MOCKUPS, LOOKS, BLENDS, BRAND, FONT } from './state.js';
 import { deepClone, deepMerge, clamp } from './util.js';
-import { renderAsset, layoutText, fontString, renderAssetToCanvas, getImage, logoBox } from './paint.js';
+import { renderAsset, layoutText, fontString, renderAssetToCanvas, getImage, logoBox, textSplit } from './paint.js';
 import { anchorPoint } from './geometry.js';
-import { drawMockup } from './mockups.js';
+import { drawMockup, lastPlacement } from './mockups.js';
 import { exportPNG, exportSVG, exportVideo, exportJSON, videoMime } from './export.js';
 import { buildControls, getPath, setPath } from './ui.js';
 import { loadProjectFonts, onFontsChanged, fontNames, fontInstances, hasAxis, axisRange } from './fonts.js';
@@ -39,7 +39,10 @@ function changed() { persist(); syncUI(); requestRender(); }
 // ---------- stage ----------
 const canvas = $('#canvas'), stage = $('#stage'), stageInfo = $('#stage-info');
 const ctx = canvas.getContext('2d');
-let view = { k: 1, ox: 0, oy: 0, dpr: 1 };  // asset px -> canvas px
+// asset px -> canvas device px, as a matrix, so the same drag code works whether you are
+// looking at the bare asset or at it sitting inside a mockup (rotated booklet included).
+let view = { m: null, inv: null, s: 1, dpr: 1 };
+const setView = m => { view.m = m; view.inv = m.inverse(); view.s = Math.hypot(m.a, m.b); };
 let time = 0, lastT = null, raf = null, needsRender = true;
 
 function resize() {
@@ -72,42 +75,85 @@ function draw() {
     const x = (cw - w) / 2, y = (ch - h) / 2;
     const asset = renderAssetToCanvas(state, time, Math.min(2000, Math.max(w, h) * 1.2), { onImageLoad: requestRender });
     const off = document.createElement('canvas'); off.width = Math.round(w); off.height = Math.round(h);
-    drawMockup(off.getContext('2d'), mk.id, off.width, off.height, asset, state);
+    const place = drawMockup(off.getContext('2d'), mk.id, off.width, off.height, asset, state);
     ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.25)'; ctx.shadowBlur = 30 * dpr; ctx.shadowOffsetY = 10 * dpr; ctx.fillStyle = '#000'; ctx.fillRect(x, y, w, h); ctx.restore();
     ctx.drawImage(off, x, y);
-    view.k = 0; // no direct interaction in mockup view
+    if (place) {
+      setView(new DOMMatrix().translate(x, y).multiply(place.matrix)
+        .translate(place.dx, place.dy).scale(place.dw / state.size.w, place.dh / state.size.h));
+      drawOverlay();
+    } else view.m = null;
     stageInfo.textContent = `${mk.label} · asset ${state.size.w} × ${state.size.h}`;
     return;
   }
   const { w: W, h: H } = state.size;
   const k = Math.min((cw - pad * 2) / W, (ch - pad * 2) / H);
   const ox = (cw - W * k) / 2, oy = (ch - H * k) / 2;
-  view.k = k; view.ox = ox; view.oy = oy;
+  setView(new DOMMatrix([k, 0, 0, k, ox, oy]));
   ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.25)'; ctx.shadowBlur = 30 * dpr; ctx.shadowOffsetY = 10 * dpr; ctx.fillStyle = '#000'; ctx.fillRect(ox, oy, W * k, H * k); ctx.restore();
   ctx.setTransform(k, 0, 0, k, ox, oy);
   renderAsset(ctx, state, time, { onImageLoad: requestRender });
-  if (state.mockup.showGuides) drawGuides(k);
+  drawOverlay();
   stageInfo.textContent = `${state.size.w} × ${state.size.h} px · ${Math.round(k / dpr * 100)}%`;
 }
 
-function drawGuides(k) {
+// Asset space -> canvas device px.
+const toStage = p => { const q = view.m.transformPoint(new DOMPoint(p.x, p.y)); return { x: q.x, y: q.y }; };
+
+// The text's four corners in asset space, rotated with it so the box tracks the type.
+function textCorners(layer) {
+  const b = textBox(layer);
+  if (!b) return null;
+  const cs = [{ x: b.x, y: b.y }, { x: b.x + b.w, y: b.y }, { x: b.x + b.w, y: b.y + b.h }, { x: b.x, y: b.y + b.h }];
+  if (!layer.rotate) return cs;
+  const L = layoutText(layer, state.size.w, state.size.h);
+  const a = layer.rotate * Math.PI / 180, ca = Math.cos(a), sa = Math.sin(a);
+  return cs.map(p => {
+    const dx = p.x - L.anchorX, dy = p.y - L.anchorY;
+    return { x: L.anchorX + dx * ca - dy * sa, y: L.anchorY + dx * sa + dy * ca };
+  });
+}
+const HANDLE = 7;   // device px, so handles stay grabbable at any zoom
+// The grip goes on whichever corner reads as bottom-right on screen, whatever the type's
+// own alignment or rotation, so it is always where the hand expects it.
+function scaleGrip(layer) {
+  const cs = textCorners(layer);
+  if (!cs) return null;
+  return cs.map(toStage).reduce((best, p) => (p.x + p.y > best.x + best.y ? p : best));
+}
+
+function drawOverlay() {
+  if (!view.m) return;
   const { w: W, h: H } = state.size;
+  const dpr = view.dpr;
   ctx.save();
-  ctx.setTransform(view.k, 0, 0, view.k, view.ox, view.oy);
-  ctx.lineWidth = 1 / k * view.dpr;
-  // centre lines
-  ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.setLineDash([6 / k * view.dpr, 6 / k * view.dpr]);
-  ctx.beginPath(); ctx.moveTo(W / 2, 0); ctx.lineTo(W / 2, H); ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2); ctx.stroke();
-  ctx.setLineDash([]);
-  // anchor handle
-  const a = anchorPoint(state);
-  const r = 9 / k * view.dpr;
-  ctx.beginPath(); ctx.arc(a.x, a.y, r, 0, Math.PI * 2);
-  ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.fill(); ctx.strokeStyle = '#111'; ctx.lineWidth = 2 / k * view.dpr; ctx.stroke();
-  ctx.beginPath(); ctx.arc(a.x, a.y, r * 0.35, 0, Math.PI * 2); ctx.fillStyle = '#111'; ctx.fill();
-  // text boxes
-  const tb = textBox(state.headline);
-  if (tb) { ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 1 / k * view.dpr; ctx.strokeRect(tb.x, tb.y, tb.w, tb.h); }
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  if (state.mockup.showGuides) {
+    ctx.lineWidth = dpr;
+    ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.setLineDash([6 * dpr, 6 * dpr]);
+    const path = [[{ x: W / 2, y: 0 }, { x: W / 2, y: H }], [{ x: 0, y: H / 2 }, { x: W, y: H / 2 }]];
+    ctx.beginPath();
+    for (const [p0, p1] of path) { const a = toStage(p0), b = toStage(p1); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); }
+    ctx.stroke();
+    ctx.setLineDash([]);
+    const a = toStage(anchorPoint(state));
+    ctx.beginPath(); ctx.arc(a.x, a.y, 9 * dpr, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.fill(); ctx.strokeStyle = '#111'; ctx.lineWidth = 2 * dpr; ctx.stroke();
+    ctx.beginPath(); ctx.arc(a.x, a.y, 3.2 * dpr, 0, Math.PI * 2); ctx.fillStyle = '#111'; ctx.fill();
+  }
+  // The text frame and its corner grip are always live — that is how you move and scale.
+  const cs = textCorners(state.headline);
+  if (cs) {
+    const pts = cs.map(toStage);
+    ctx.beginPath();
+    pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+    ctx.closePath();
+    ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = dpr; ctx.stroke();
+    const g = scaleGrip(state.headline);
+    const r = HANDLE * dpr;
+    ctx.beginPath(); ctx.rect(g.x - r, g.y - r, r * 2, r * 2);
+    ctx.fillStyle = '#fff'; ctx.fill(); ctx.strokeStyle = '#111'; ctx.lineWidth = 1.5 * dpr; ctx.stroke();
+  }
   ctx.restore();
 }
 
@@ -123,52 +169,75 @@ function textBox(layer) {
   return { x, y: L.top, w: wmax, h: L.total };
 }
 
-// ---------- pointer interaction: drag anchor / text / logo ----------
+// ---------- pointer interaction: move / scale text, drag anchor and logo ----------
 let drag = null;
 function toAsset(e) {
   const r = canvas.getBoundingClientRect();
-  const px = (e.clientX - r.left) * view.dpr, py = (e.clientY - r.top) * view.dpr;
-  return { x: (px - view.ox) / view.k, y: (py - view.oy) / view.k };
+  const p = view.inv.transformPoint(new DOMPoint((e.clientX - r.left) * view.dpr, (e.clientY - r.top) * view.dpr));
+  return { x: p.x, y: p.y };
 }
+function toDevice(e) {
+  const r = canvas.getBoundingClientRect();
+  return { x: (e.clientX - r.left) * view.dpr, y: (e.clientY - r.top) * view.dpr };
+}
+const inBox = (p, b) => b && p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h;
+// Hit the grip in device space so it stays the same size however the mockup scales the asset.
+function onGrip(e) {
+  const g = scaleGrip(state.headline);
+  if (!g) return false;
+  const d = toDevice(e);
+  return Math.abs(d.x - g.x) < (HANDLE + 3) * view.dpr && Math.abs(d.y - g.y) < (HANDLE + 3) * view.dpr;
+}
+
 canvas.addEventListener('pointerdown', e => {
-  if (!view.k) return;
+  if (!view.m) return;
   const p = toAsset(e);
   const { w: W, h: H } = state.size;
-  const hitR = 14 / view.k * view.dpr;
-  const a = anchorPoint(state);
-  if (Math.hypot(p.x - a.x, p.y - a.y) < hitR * 1.4) drag = { kind: 'anchor', start: p, sx: state.shape.focusX, sy: state.shape.focusY };
-  else {
-    const b = textBox(state.headline);
-    if (b && p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h) drag = { kind: 'text', key: 'headline', start: p, sx: state.headline.x, sy: state.headline.y };
-    if (!drag && state.logo.enabled && state.logo.src) {
+  if (state.headline.enabled && onGrip(e)) {
+    const L = layoutText(state.headline, W, H);
+    drag = { kind: 'scale', anchor: { x: L.anchorX, y: L.anchorY }, d0: Math.hypot(p.x - L.anchorX, p.y - L.anchorY), size: state.headline.size };
+  } else {
+    const a = anchorPoint(state);
+    if (state.mockup.showGuides && Math.hypot(p.x - a.x, p.y - a.y) < 20 / view.s * view.dpr)
+      drag = { kind: 'anchor', start: p, sx: state.shape.focusX, sy: state.shape.focusY };
+    else if (inBox(p, textBox(state.headline)))
+      drag = { kind: 'text', start: p, sx: state.headline.x, sy: state.headline.y };
+    else if (state.logo.enabled && state.logo.src) {
       const img = getImage(state.logo.src);
-      if (img) { const b = logoBox(state.logo, W, H, img); if (p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h) drag = { kind: 'logo', start: p, sx: state.logo.x, sy: state.logo.y }; }
+      if (img && inBox(p, logoBox(state.logo, W, H, img))) drag = { kind: 'logo', start: p, sx: state.logo.x, sy: state.logo.y };
     }
   }
   if (!drag && e.altKey) drag = { kind: 'anchor', start: p, sx: state.shape.focusX, sy: state.shape.focusY, jump: true };
   if (drag) { canvas.setPointerCapture(e.pointerId); pushHistory(); }
 });
 canvas.addEventListener('pointermove', e => {
-  if (!drag) { if (view.k) canvas.style.cursor = hoverCursor(toAsset(e)); return; }
+  if (!view.m) return;
+  if (!drag) { canvas.style.cursor = hoverCursor(e); return; }
   const p = toAsset(e);
   const { w: W, h: H } = state.size;
-  let nx = drag.jump ? p.x / W : drag.sx + (p.x - drag.start.x) / W;
-  let ny = drag.jump ? p.y / H : drag.sy + (p.y - drag.start.y) / H;
-  if (!e.shiftKey) { // snap to centre / thirds
-    for (const g of [0.5, 1 / 3, 2 / 3]) { if (Math.abs(nx - g) < 0.012) nx = g; if (Math.abs(ny - g) < 0.012) ny = g; }
+  if (drag.kind === 'scale') {
+    const d = Math.hypot(p.x - drag.anchor.x, p.y - drag.anchor.y);
+    if (drag.d0 > 1e-6) state.headline.size = clamp(+(drag.size * d / drag.d0).toFixed(4), 0.005, 4);
+  } else {
+    let nx = drag.jump ? p.x / W : drag.sx + (p.x - drag.start.x) / W;
+    let ny = drag.jump ? p.y / H : drag.sy + (p.y - drag.start.y) / H;
+    if (!e.shiftKey) { // snap to centre / thirds
+      for (const g of [0.5, 1 / 3, 2 / 3]) { if (Math.abs(nx - g) < 0.012) nx = g; if (Math.abs(ny - g) < 0.012) ny = g; }
+    }
+    if (drag.kind === 'anchor') { state.shape.focusX = +nx.toFixed(4); state.shape.focusY = +ny.toFixed(4); }
+    else if (drag.kind === 'text') { state.headline.x = +nx.toFixed(4); state.headline.y = +ny.toFixed(4); }
+    else if (drag.kind === 'logo') { state.logo.x = +nx.toFixed(4); state.logo.y = +ny.toFixed(4); }
   }
-  if (drag.kind === 'anchor') { state.shape.focusX = +nx.toFixed(4); state.shape.focusY = +ny.toFixed(4); }
-  else if (drag.kind === 'text') { state[drag.key].x = +nx.toFixed(4); state[drag.key].y = +ny.toFixed(4); }
-  else if (drag.kind === 'logo') { state.logo.x = +nx.toFixed(4); state.logo.y = +ny.toFixed(4); }
   persist(); controls.refresh(); requestRender();
 });
 const endDrag = () => { drag = null; };
 canvas.addEventListener('pointerup', endDrag); canvas.addEventListener('pointercancel', endDrag);
-function hoverCursor(p) {
+function hoverCursor(e) {
+  if (state.headline.enabled && onGrip(e)) return 'nwse-resize';
+  const p = toAsset(e);
   const a = anchorPoint(state);
-  if (Math.hypot(p.x - a.x, p.y - a.y) < 20 / view.k * view.dpr) return 'grab';
-  const b = textBox(state.headline);
-  if (b && p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h) return 'move';
+  if (state.mockup.showGuides && Math.hypot(p.x - a.x, p.y - a.y) < 20 / view.s * view.dpr) return 'grab';
+  if (inBox(p, textBox(state.headline))) return 'move';
   return 'default';
 }
 
@@ -217,6 +286,7 @@ function buildLeft() {
   mk.addEventListener('change', () => set('mockup.id', mk.value));
   $('#motion-toggle').addEventListener('change', e => { set('motion.enabled', e.target.checked); lastT = null; });
   $('#guides-toggle').addEventListener('change', e => set('mockup.showGuides', e.target.checked));
+
   $('#video-duration').addEventListener('change', e => set('motion.duration', clamp(+e.target.value || 6, 1, 60)));
 }
 let activeLook = null;
@@ -272,7 +342,7 @@ const axis = (tag, fallback) => axisRange(FONT, tag) || fallback;
 // The chevron beside the size field: sizes that mean something relative to the canvas.
 const sizePresets = s => [10, 20, 30, 40, 50, 62, 75, 100].map(pc => ({ label: `${pc}% of height`, value: Math.round(s.size.h * pc / 100) }));
 
-const TYPE_GROUP = { title: 'Type', controls: [
+const TYPE_GROUP = { controls: [
   { path: 'headline.enabled', label: 'Show', type: 'checkbox' },
   { path: 'headline.text', type: 'textarea', rows: 2, placeholder: 'Headline (new lines allowed)' },
   { type: 'fields', cols: '1fr', items: [
@@ -315,7 +385,9 @@ const TYPE_GROUP = { title: 'Type', controls: [
     { label: 'Rotation', type: 'field', icon: ICO.rot, path: 'headline.rotate', title: 'Rotation', min: -90, max: 90, step: 1, scrub: 0.5, unit: '°' },
     { label: 'Colour', type: 'color', path: 'headline.color' },
   ] },
-  { path: 'headline.behind', label: 'Behind beams', type: 'checkbox' },
+  { label: 'Beams behind', type: 'range', min: 0, max: 40, step: 1, decimals: 0,
+    get: s => textSplit(s.headline, Math.round(s.shape.count)),
+    onSet: v => set('headline.depth', clamp(v / Math.max(1, Math.round(state.shape.count)), 0, 1)) },
   { label: 'Place', type: 'buttons', wide: true, buttons: [
     { label: 'Centre', onClick: () => patch({ headline: { x: 0.5, y: 0.5, align: 'center', valign: 'middle' } }) },
     { label: 'Top-left', onClick: () => patch({ headline: { x: 0.05, y: 0.06, align: 'left', valign: 'top' } }) },
@@ -325,14 +397,14 @@ const TYPE_GROUP = { title: 'Type', controls: [
 ] };
 
 // The raw axes, for anything between two named instances.
-const AXES_GROUP = { title: 'Variable axes', collapsed: true, when: () => !!fontInstances(FONT).length, controls: [
+const AXES_GROUP = { controls: [
   { path: 'headline.wght', label: 'Weight', type: 'range', step: 1, decimals: 0, min: axis('wght', { min: 100, max: 900 }).min, max: axis('wght', { min: 100, max: 900 }).max, when: s => hasAxis(s.headline.font, 'wght') },
   { path: 'headline.wdth', label: 'Width', type: 'range', step: 1, decimals: 0, min: axis('wdth', { min: 50, max: 200 }).min, max: axis('wdth', { min: 50, max: 200 }).max, when: s => hasAxis(s.headline.font, 'wdth') },
   { path: 'headline.slnt', label: 'Slant', type: 'range', step: 0.5, decimals: 1, min: axis('slnt', { min: -20, max: 0 }).min, max: axis('slnt', { min: -20, max: 0 }).max, when: s => hasAxis(s.headline.font, 'slnt') },
 ] };
 
 const SCHEMA = [
-  { title: 'Shape', controls: [
+  { title: 'Beams', tab: 'design', controls: [
     { path: 'shape.count', label: 'Beams', type: 'range', min: 1, max: 40, step: 1 },
     { path: 'shape.baseWidth', label: 'Width', type: 'range', min: 0.002, max: 0.6, step: 0.002, decimals: 3 },
     { path: 'shape.widthVariation', label: 'Width vary', type: 'range', min: 0, max: 1, step: 0.01 },
@@ -343,17 +415,17 @@ const SCHEMA = [
     { path: 'shape.span', label: 'Span', type: 'range', min: 0, max: 360, step: 1, when: anyOf('rays', 'weave') },
     { path: 'shape.spread', label: 'Spread', type: 'range', min: 0, max: 2.5, step: 0.01, when: anyOf('weave', 'streamers') },
     { path: 'shape.pinch', label: 'Pinch', type: 'range', min: 0, max: 0.95, step: 0.01, when: tpl('streamers') },
-    { path: 'shape.tension', label: 'Tension', type: 'range', min: 0.05, max: 1, step: 0.01, when: tpl('streamers') },
+    { path: 'shape.tension', label: 'Curve', type: 'range', min: 0, max: 1, step: 0.01, when: tpl('streamers') },
     { path: 'shape.focusX', label: 'Anchor X', type: 'range', min: -0.5, max: 1.5, step: 0.005, decimals: 3 },
     { path: 'shape.focusY', label: 'Anchor Y', type: 'range', min: -0.5, max: 1.5, step: 0.005, decimals: 3 },
+    { path: 'shape.pack', label: 'Pack', type: 'range', min: 0, max: 1, step: 0.01 },
     { path: 'shape.jitter', label: 'Jitter', type: 'range', min: 0, max: 1, step: 0.01 },
     { path: 'shape.seed', label: 'Seed', type: 'range', min: 1, max: 999, step: 1 },
     { path: 'shape.rotate', label: 'Rotate all', type: 'range', min: -180, max: 180, step: 1 },
     { path: 'shape.scale', label: 'Scale', type: 'range', min: 0.2, max: 3, step: 0.01 },
     { path: 'shape.offsetX', label: 'Offset X', type: 'range', min: -1, max: 1, step: 0.005, decimals: 3 },
     { path: 'shape.offsetY', label: 'Offset Y', type: 'range', min: -1, max: 1, step: 0.005, decimals: 3 },
-  ] },
-  { title: 'Stroke & colour', controls: [
+    { type: 'sublabel', text: 'Stroke & colour' },
     { path: 'fill.mode', label: 'Fill', type: 'seg', options: [{ value: 'solid', label: 'Solid' }, { value: 'gradient', label: 'Gradient' }, { value: 'stripes', label: 'Stripes' }] },
     { path: 'fill.colorStep', label: 'Colour step', type: 'range', min: 0, max: 4, step: 1 },
     { path: 'fill.runSpread', label: 'Colours / beam', type: 'range', min: 1, max: 4, step: 1, when: s => s.fill.mode !== 'solid' },
@@ -372,7 +444,22 @@ const SCHEMA = [
     { path: 'fill.edge', label: 'Outline', type: 'range', min: 0, max: 20, step: 0.5, decimals: 1 },
     { path: 'fill.edgeColor', label: 'Outline colour', type: 'color', when: s => s.fill.edge > 0 },
   ] },
-  { title: 'Motion', controls: [
+  { title: 'Typography', tab: 'design', controls: [
+    ...TYPE_GROUP.controls,
+    { type: 'sublabel', text: 'Variable axes', when: () => !!fontInstances(FONT).length },
+    ...AXES_GROUP.controls,
+  ] },
+  { title: 'Logos', tab: 'design', collapsed: true, controls: [
+    { path: 'logo.enabled', label: 'Show', type: 'checkbox' },
+    { label: 'Image', type: 'file', label2: 'Choose PNG / SVG…', accept: 'image/*', onFile: (file) => { const r = new FileReader(); r.onload = () => patch({ logo: { src: r.result, enabled: true } }); r.readAsDataURL(file); } },
+    { path: 'logo.width', label: 'Width', type: 'range', min: 0.02, max: 1, step: 0.005, decimals: 3 },
+    { path: 'logo.opacity', label: 'Opacity', type: 'range', min: 0, max: 1, step: 0.01 },
+    { path: 'logo.align', label: 'Align', type: 'seg', options: [{ value: 'left', label: 'Left' }, { value: 'center', label: 'Centre' }, { value: 'right', label: 'Right' }] },
+    { path: 'logo.valign', label: 'V-align', type: 'seg', options: [{ value: 'top', label: 'Top' }, { value: 'middle', label: 'Middle' }, { value: 'bottom', label: 'Bottom' }] },
+    { path: 'logo.x', label: 'X', type: 'range', min: -0.2, max: 1.2, step: 0.005, decimals: 3 },
+    { path: 'logo.y', label: 'Y', type: 'range', min: -0.2, max: 1.2, step: 0.005, decimals: 3 },
+  ] },
+  { tab: 'motion', controls: [
     { path: 'motion.enabled', label: 'Animate', type: 'checkbox' },
     { path: 'motion.speed', label: 'Colour run', type: 'range', min: -2, max: 2, step: 0.01 },
     { path: 'motion.sway', label: 'Sway °', type: 'range', min: 0, max: 45, step: 0.5, decimals: 1 },
@@ -384,20 +471,14 @@ const SCHEMA = [
       { label: 'Fit duration to a seamless loop', onClick: () => { const sp = Math.abs(state.motion.speed) || 0.25; const one = 1 / sp; const n = Math.max(1, Math.round(state.motion.duration / one)); set('motion.duration', +(n * one).toFixed(2)); toast(`Duration set to ${(n * one).toFixed(2)} s (${n} colour loop${n > 1 ? 's' : ''})`); } },
     ] },
   ] },
-  TYPE_GROUP,
-  AXES_GROUP,
-  { title: 'Logo / image', collapsed: true, controls: [
-    { path: 'logo.enabled', label: 'Show', type: 'checkbox' },
-    { label: 'Image', type: 'file', label2: 'Choose PNG / SVG…', accept: 'image/*', onFile: (file) => { const r = new FileReader(); r.onload = () => patch({ logo: { src: r.result, enabled: true } }); r.readAsDataURL(file); } },
-    { path: 'logo.width', label: 'Width', type: 'range', min: 0.02, max: 1, step: 0.005, decimals: 3 },
-    { path: 'logo.opacity', label: 'Opacity', type: 'range', min: 0, max: 1, step: 0.01 },
-    { path: 'logo.align', label: 'Align', type: 'seg', options: [{ value: 'left', label: 'Left' }, { value: 'center', label: 'Centre' }, { value: 'right', label: 'Right' }] },
-    { path: 'logo.valign', label: 'V-align', type: 'seg', options: [{ value: 'top', label: 'Top' }, { value: 'middle', label: 'Middle' }, { value: 'bottom', label: 'Bottom' }] },
-    { path: 'logo.x', label: 'X', type: 'range', min: -0.2, max: 1.2, step: 0.005, decimals: 3 },
-    { path: 'logo.y', label: 'Y', type: 'range', min: -0.2, max: 1.2, step: 0.005, decimals: 3 },
-  ] },
 ];
-const controls = buildControls($('#controls'), SCHEMA, { getState: () => state, set: (p, v) => set(p, v) });
+let tab = 'design';
+const controls = buildControls($('#controls'), SCHEMA, { getState: () => state, set: (p, v) => set(p, v), tab: () => tab });
+document.querySelectorAll('.panel-tabs button').forEach(b => b.addEventListener('click', () => {
+  tab = b.dataset.tab;
+  document.querySelectorAll('.panel-tabs button').forEach(x => x.classList.toggle('active', x === b));
+  controls.refresh();
+}));
 
 // ---------- sync ----------
 function syncUI() {
@@ -465,4 +546,6 @@ buildLeft();
 onFontsChanged(() => { controls.refresh(); requestRender(); });
 (async () => { await loadProjectFonts(); document.fonts.ready.then(requestRender); })();
 syncUI(); resize();
-window.studio = { get state() { return state; }, set, patch, replaceState, get time() { return time; } };
+// Debug handle: state plus a synchronous redraw, so the stage can be inspected without
+// waiting on requestAnimationFrame (which a hidden tab never fires).
+window.studio = { get state() { return state; }, set, patch, replaceState, get time() { return time; }, get view() { return view; }, render: draw };
