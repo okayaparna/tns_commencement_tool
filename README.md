@@ -18,9 +18,9 @@ then visit http://localhost:8765 (ES modules do not run from `file://`).
   different things in each, so picking a pattern brings its own settings with it rather than
   carrying the last one's across — Undo puts your numbers back. The *Looks* row above sets a whole
   design (colours, fill and type) rather than only the shape.
-- **Colour**: background is the four brand colours plus black and white; the beam palette is
-  free and ordered. Solid, gradient or striped beams; blend modes so intersections mix; outline
-  strokes.
+- **Colour**: everything is drawn from the four brand colours plus black and white — background
+  and beam palette alike, picked from swatches rather than a colour dialogue, so nothing
+  off-brand can get in. The palette is ordered, and beams take it in that order.
 - **Core heat**: a bright centreline running the length of each beam, brightest in the middle of
   the stroke and fading to its edges. Without it a beam is flat in section and reads as coloured
   tape; with it the stroke reads as light. Pair it with a black background — light adds where
@@ -29,7 +29,8 @@ then visit http://localhost:8765 (ES modules do not run from `file://`).
 - **Mix**: how colours travel along a beam. *Arc* rotates round the hue wheel, so pink → green
   passes through amber instead of the grey that a straight OKLab line runs through; *Direct* is
   that straight line; *Hard* does not mix at all (crisp bands, closest to the 2025 posters).
-  **Vividness** holds mid-gradient chroma up toward the more saturated of the two colours.
+  Mid-gradient chroma is always held up toward the more saturated of the two colours, so a mix
+  never sags toward grey.
 - **Direct manipulation**: drag the headline to move it and its corner grip to scale it, right on
   the canvas — and inside a mockup too, tilted booklet included, since the stage inverts whatever
   transform the mockup used. Positions snap to centre and thirds; hold Shift to disable. The

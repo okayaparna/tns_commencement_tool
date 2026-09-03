@@ -38,7 +38,10 @@ export function colorCycle(colors) {
 }
 // Gradient stops for the visible window of the cycle, shifted by phase (0..1 = one full loop).
 // space: 'oklch' (hue-arc, keeps mixes saturated), 'oklab' (straight line), 'hard' (crisp bands).
-export function gradientStops(colors, phase, space = 'oklch', vividness = 0) {
+// Anti-mud: mid-gradient chroma is held up toward the more saturated end. Fixed rather than
+// exposed — there is no useful reason to ask for a muddier mix.
+const VIVIDNESS = 0.85;
+export function gradientStops(colors, phase, space = 'oklch') {
   if (colors.length === 1) return [{ pos: 0, color: colors[0] }, { pos: 1, color: colors[0] }];
   const cycle = colorCycle(colors);
   const n = cycle.length;
@@ -60,7 +63,7 @@ export function gradientStops(colors, phase, space = 'oklch', vividness = 0) {
   }
   // The browser only lerps in sRGB between the stops we hand it, so sub-sample each
   // segment finely enough that its straight lines follow the perceptual path we want.
-  const mix = space === 'oklab' ? cycleColorOklab : (c, u) => cycleColorOklch(c, u, vividness);
+  const mix = space === 'oklab' ? cycleColorOklab : (c, u) => cycleColorOklch(c, u, VIVIDNESS);
   const SUB = 8;
   const us = new Set([u0, u1]);
   for (let j = 0; j <= 2 * n * SUB; j++) { const u = j / (n * SUB); if (u > u0 && u < u1) us.add(u); }
@@ -231,7 +234,7 @@ export function buildBeams(state, time = 0) {
       const colors = [];
       const cnt = f.mode === 'solid' ? 1 : Math.max(1, Math.round(f.runSpread)) + 1;
       for (let c = 0; c < cnt; c++) colors.push(pal[mod(base + j + c, pal.length)]);
-      b.stripes.push({ colors, stops: gradientStops(colors, phase, f.blendSpace, f.vividness) });
+      b.stripes.push({ colors, stops: gradientStops(colors, phase, f.blendSpace) });
     }
     b.phase = phase;
   }
@@ -302,22 +305,6 @@ export function ribbonQuads(pts, widths, f0 = -0.5, f1 = 0.5, tol = 0.05, wtol =
     out.push({ a, z, poly: [at(p0, n0, w0, f1), at(p1, n1, w1, f1), at(p1, n1, w1, f0), at(p0, n0, w0, f0)] });
   }
   return out;
-}
-
-// Fold a 0..1 stop list into an edge → centre → edge ramp, so the palette reads across the
-// stroke symmetrically: the first colour on both rims, the last one down the centreline.
-// `fade` carries an alpha ramp with it — a stroke that ends on a hard edge reads as a wedge of
-// paint however good the colours are; one that dissolves into the ground reads as light.
-export function mirrorStops(stops, fade = 0) {
-  const alphaAt = pos => {
-    if (!(fade > 0)) return 1;
-    const u = Math.abs(pos - 0.5) * 2;          // 0 on the centreline, 1 at the rim
-    return clamp(1 - u, 0, 1) >= fade ? 1 : Math.pow(clamp((1 - u) / fade, 0, 1), 0.75);
-  };
-  const out = [];
-  for (const t of stops) out.push({ pos: t.pos / 2, color: t.color });
-  for (const t of stops.slice().reverse()) out.push({ pos: 1 - t.pos / 2, color: t.color });
-  return out.map(t => ({ ...t, alpha: alphaAt(t.pos) }));
 }
 
 // White-alpha profile across a stroke: nothing at the edges, `core` on the centreline.

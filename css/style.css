@@ -63,9 +63,12 @@ code { background: #eee; padding: 1px 4px; border-radius: 4px; }
 .tpl.active svg path, .tpl.active svg line { stroke: #fff; }
 
 .palette { display: flex; flex-wrap: wrap; gap: 6px; }
-.chip { position: relative; width: 40px; height: 40px; border-radius: 8px; border: 1px solid rgba(0,0,0,.12); overflow: hidden; }
-.chip input[type=color] { position: absolute; inset: -10px; width: 200%; height: 200%; border: 0; padding: 0; cursor: pointer; }
-.chip button { position: absolute; top: 0; right: 0; width: 16px; height: 16px; padding: 0; font-size: 10px; line-height: 14px; border-radius: 0 0 0 6px; background: rgba(255,255,255,.85); border: 0; }
+.chip { position: relative; width: 40px; height: 40px; padding: 0; border-radius: 8px; border: 1px solid rgba(0,0,0,.12); overflow: hidden; }
+.chip .x { position: absolute; top: 0; right: 0; width: 16px; height: 16px; font-size: 10px; line-height: 15px; text-align: center; border-radius: 0 0 0 6px; background: rgba(255,255,255,.85); cursor: pointer; }
+/* Colours come from the brand set, so picking one is a row of swatches, not a colour dialogue. */
+.swatch-pop { position: fixed; z-index: 60; display: flex; gap: 6px; padding: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.16); }
+.swatch-pop button { width: 30px; height: 30px; padding: 0; border-radius: 7px; border: 1px solid rgba(0,0,0,.12); }
+.swatch-pop button:hover { transform: scale(1.08); }
 .swatches { display: flex; gap: 6px; margin-top: 6px; }
 .sw-btn { width: 34px; height: 34px; padding: 0; border-radius: 8px; border: 1px solid rgba(0,0,0,.12); }
 .sw-btn:hover { transform: scale(1.06); }

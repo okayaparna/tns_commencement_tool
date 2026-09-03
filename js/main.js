@@ -1,4 +1,4 @@
-import { DEFAULT_STATE, SIZE_PRESETS, TEMPLATES, MOCKUPS, LOOKS, BLENDS, BRAND, FONT } from './state.js';
+import { DEFAULT_STATE, SIZE_PRESETS, TEMPLATES, MOCKUPS, LOOKS, BRAND, FONT } from './state.js';
 import { deepClone, deepMerge, clamp } from './util.js';
 import { renderAsset, layoutText, fontString, renderAssetToCanvas, getImage, logoBox, textSplit } from './paint.js';
 import { anchorPoint } from './geometry.js';
@@ -363,7 +363,8 @@ function buildLeft() {
     b.addEventListener('click', () => set('background', c.hex));
     bgs.appendChild(b);
   }
-  $('#btn-add-color').addEventListener('click', () => set('palette', [...state.palette, BRAND.white]));
+  $('#btn-add-color').addEventListener('click', e =>
+    openSwatchPicker(e.currentTarget, hex => set('palette', [...state.palette, hex])));
   $('#btn-brand-colors').addEventListener('click', () => set('palette', [BRAND.pink, BRAND.green, BRAND.red, BRAND.blue]));
   $('#btn-shuffle-colors').addEventListener('click', () => set('palette', [...state.palette.slice(1), state.palette[0]]));
   const mk = $('#mockup'); mk.innerHTML = '';
@@ -376,15 +377,36 @@ function buildLeft() {
   $('#video-duration').addEventListener('change', e => set('motion.duration', clamp(+e.target.value || 6, 1, 60)));
 }
 let activeLook = null;
+// The palette is drawn from the six brand colours and nothing else, so a chip opens a picker
+// of those rather than the browser's colour dialogue.
+function openSwatchPicker(anchor, onPick) {
+  document.querySelector('.swatch-pop')?.remove();
+  const pop = document.createElement('div'); pop.className = 'swatch-pop';
+  for (const c of BACKGROUNDS) {
+    const b = document.createElement('button');
+    b.style.background = c.hex; b.title = c.label;
+    b.addEventListener('click', () => { pop.remove(); onPick(c.hex); });
+    pop.appendChild(b);
+  }
+  const r = anchor.getBoundingClientRect();
+  pop.style.left = `${Math.min(r.left, innerWidth - 210)}px`;
+  pop.style.top = `${r.bottom + 6}px`;
+  document.body.appendChild(pop);
+  setTimeout(() => document.addEventListener('pointerdown', function away(e) {
+    if (!pop.contains(e.target)) { pop.remove(); document.removeEventListener('pointerdown', away); }
+  }), 0);
+}
 function renderPalette() {
   const pal = $('#palette'); pal.innerHTML = '';
   state.palette.forEach((c, i) => {
-    const chip = document.createElement('div'); chip.className = 'chip'; chip.style.background = c;
-    const inp = document.createElement('input'); inp.type = 'color'; inp.value = c;
-    inp.addEventListener('input', () => { const p = [...state.palette]; p[i] = inp.value; chip.style.background = inp.value; set('palette', p); });
-    const del = document.createElement('button'); del.textContent = '×'; del.title = 'Remove';
+    const chip = document.createElement('button'); chip.className = 'chip'; chip.style.background = c;
+    chip.title = 'Change colour';
+    chip.addEventListener('click', () => openSwatchPicker(chip, hex => {
+      const p = [...state.palette]; p[i] = hex; set('palette', p);
+    }));
+    const del = document.createElement('span'); del.className = 'x'; del.textContent = '×'; del.title = 'Remove';
     del.addEventListener('click', ev => { ev.stopPropagation(); if (state.palette.length > 1) set('palette', state.palette.filter((_, j) => j !== i)); });
-    chip.append(inp, del); pal.appendChild(chip);
+    chip.append(del); pal.appendChild(chip);
   });
 }
 // ---------- right panel schema ----------
@@ -498,7 +520,6 @@ const SCHEMA = [
     { path: 'shape.edgeCurve', label: 'Edge curve', type: 'range', min: 0.3, max: 4, step: 0.05, when: tpl('rays') },
     { path: 'shape.warp', label: 'Warp', type: 'range', min: -1, max: 1, step: 0.01, when: tpl('rays') },
     { path: 'shape.twoSided', label: 'Mirror', type: 'checkbox', when: tpl('rays') },
-    { path: 'shape.angle', label: 'Angle', type: 'range', min: -180, max: 180, step: 1 },
     { path: 'shape.span', label: 'Span', type: 'range', min: 0, max: 360, step: 1, when: anyOf('rays', 'weave') },
     { path: 'shape.spread', label: 'Spread', type: 'range', min: 0, max: 2.5, step: 0.01, when: anyOf('weave', 'streamers') },
     { path: 'shape.pinch', label: 'Pinch', type: 'range', min: 0, max: 0.95, step: 0.01, when: tpl('streamers') },
@@ -506,35 +527,24 @@ const SCHEMA = [
     { path: 'shape.focusX', label: 'Anchor X', type: 'range', min: -0.5, max: 1.5, step: 0.005, decimals: 3 },
     { path: 'shape.focusY', label: 'Anchor Y', type: 'range', min: -0.5, max: 1.5, step: 0.005, decimals: 3 },
     { path: 'shape.pack', label: 'Pack', type: 'range', min: 0, max: 1, step: 0.01 },
-    { path: 'shape.jitter', label: 'Jitter', type: 'range', min: 0, max: 1, step: 0.01 },
-    { path: 'shape.seed', label: 'Seed', type: 'range', min: 1, max: 999, step: 1 },
     { path: 'shape.rotate', label: 'Rotate all', type: 'range', min: -180, max: 180, step: 1 },
     { path: 'shape.scale', label: 'Scale', type: 'range', min: 0.2, max: 3, step: 0.01 },
     { path: 'shape.offsetX', label: 'Offset X', type: 'range', min: -1, max: 1, step: 0.005, decimals: 3 },
     { path: 'shape.offsetY', label: 'Offset Y', type: 'range', min: -1, max: 1, step: 0.005, decimals: 3 },
     { type: 'sublabel', text: 'Stroke & colour' },
     { path: 'fill.mode', label: 'Fill', type: 'seg', options: [{ value: 'solid', label: 'Solid' }, { value: 'gradient', label: 'Gradient' }, { value: 'stripes', label: 'Stripes' }] },
-    { path: 'fill.axis', label: 'Palette runs', type: 'seg', when: s => s.fill.mode !== 'solid', options: [
-      { value: 'length', label: 'Along', title: 'Down the length of the stroke' },
-      { value: 'across', label: 'Across', title: 'Edge to centre to edge — one stroke carries the whole ramp' } ] },
     { path: 'fill.colorStep', label: 'Colour step', type: 'range', min: 0, max: 4, step: 1 },
     { path: 'fill.runSpread', label: 'Colours / beam', type: 'range', min: 1, max: 4, step: 1, when: s => s.fill.mode !== 'solid' },
     { path: 'fill.blendSpace', label: 'Mix', type: 'seg', when: s => s.fill.mode !== 'solid', options: [
       { value: 'oklch', label: 'Arc', title: 'Travel round the hue wheel — mixes stay saturated' },
       { value: 'oklab', label: 'Direct', title: 'Shortest path — can pass through grey' },
       { value: 'hard', label: 'Hard', title: 'No mixing at all: crisp colour bands' } ] },
-    { path: 'fill.vividness', label: 'Vividness', type: 'range', min: 0, max: 1, step: 0.01, when: s => s.fill.mode !== 'solid' && s.fill.blendSpace !== 'hard' },
     { path: 'fill.phase', label: 'Gradient shift', type: 'range', min: 0, max: 1, step: 0.005, decimals: 3, when: s => s.fill.mode !== 'solid' },
     { path: 'fill.stripes', label: 'Stripes', type: 'range', min: 2, max: 8, step: 1, when: s => s.fill.mode === 'stripes' },
     { path: 'fill.seam', label: 'Seam width', type: 'range', min: 0, max: 0.6, step: 0.01, when: s => s.fill.mode === 'stripes' },
     { path: 'fill.centreSeam', label: 'Centre seam', type: 'range', min: 0, max: 0.9, step: 0.01 },
-    { path: 'fill.edgeFade', label: 'Edge fade', type: 'range', min: 0, max: 1, step: 0.01, when: s => s.fill.axis === 'across' && s.fill.mode !== 'solid' },
     { path: 'fill.core', label: 'Core heat', type: 'range', min: 0, max: 1, step: 0.01 },
     { path: 'fill.coreFocus', label: 'Core focus', type: 'range', min: 0.6, max: 8, step: 0.1, decimals: 1, when: s => s.fill.core > 0 },
-    { path: 'fill.blend', label: 'Blend', type: 'select', options: BLENDS },
-    { path: 'fill.opacity', label: 'Opacity', type: 'range', min: 0.05, max: 1, step: 0.01 },
-    { path: 'fill.edge', label: 'Outline', type: 'range', min: 0, max: 20, step: 0.5, decimals: 1 },
-    { path: 'fill.edgeColor', label: 'Outline colour', type: 'color', when: s => s.fill.edge > 0 },
   ] },
   { tab: 'motion', controls: [
     { path: 'motion.enabled', label: 'Animate', type: 'checkbox' },

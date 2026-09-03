@@ -50,12 +50,8 @@ export const MOCKUPS = [
   { id: 'badge',   label: 'Name badge',       ratio: 4 / 3 },
 ];
 
-// 'overlay', 'difference' and 'hard-light' were dropped: on saturated brand colours they
-// always land in the muddy middle. These five stay legible where beams cross.
-export const BLENDS = ['normal', 'multiply', 'screen', 'lighten', 'darken'];
-
 export const DEFAULT_STATE = {
-  version: 7,
+  version: 8,
   size: { preset: 'wide', w: 1920, h: 1080 },
   background: BRAND.blue,
   palette: [BRAND.pink, BRAND.green, BRAND.red, BRAND.blue],
@@ -81,22 +77,15 @@ export const DEFAULT_STATE = {
   },
   fill: {
     mode: 'gradient',     // solid | gradient | stripes
-    axis: 'length',       // length | across — which way the palette runs on a stroke
     colorStep: 1,         // palette index step per beam
     runSpread: 1,         // colours per beam length (1 = one pair)
     blendSpace: 'oklch',  // oklch | oklab | hard — how colours transition along a beam
-    vividness: 0.85,      // 0..1 how hard mid-gradient chroma is held up (anti-mud)
     phase: 0,             // static gradient offset
     stripes: 3,           // stripes mode: sub-bands per beam
     seam: 0.06,           // gap between stripes (fraction of beam width)
     centreSeam: 0,        // gap carved down the middle of every stroke, splitting it in two
-    edgeFade: 0,          // how much of the half-width dissolves to nothing at the rims
     core: 0,              // brightness of the lit centreline of each beam (0 = flat section)
     coreFocus: 2.2,       // how tightly that brightness is gathered on the centreline
-    blend: 'normal',
-    opacity: 1,
-    edge: 0,              // optional outline stroke width (px at 1000px short side)
-    edgeColor: '#FFFFFF',
   },
   motion: {
     enabled: true,
@@ -128,12 +117,12 @@ export const LOOKS = [
   { id: 'weave-blue', label: 'Weave · blue', swatch: [BRAND.blue, BRAND.pink, BRAND.green, BRAND.red], state: {
     background: BRAND.blue, palette: [BRAND.pink, BRAND.green, BRAND.red, BRAND.blue],
     shape: { template: 'weave', count: 9, baseWidth: 0.09, angle: -18, span: 34, spread: 0.9, jitter: 0.5, seed: 7 },
-    fill: { mode: 'gradient', blend: 'normal' }, headline: { text: '2025', size: 0.62 },
+    fill: { mode: 'gradient' }, headline: { text: '2025', size: 0.62 },
   } },
   { id: 'fan-pink', label: 'Fan · pink poster', swatch: [BRAND.pink, BRAND.red, BRAND.blue, BRAND.green], state: {
     background: BRAND.pink, palette: [BRAND.red, BRAND.blue, BRAND.green, BRAND.pink],
     shape: { template: 'rays', count: 14, baseWidth: 0.006, outerWidth: 0.14, edgeCurve: 1.3, focusX: 0.5, focusY: -0.15, angle: 90, span: 70, twoSided: false, jitter: 0.6, seed: 3, widthVariation: 0.6 },
-    fill: { mode: 'stripes', stripes: 3, seam: 0.04, blend: 'normal' },
+    fill: { mode: 'stripes', stripes: 3, seam: 0.04 },
     headline: { text: '20\n25', size: 0.42, lineHeight: 0.84, letterSpacing: -0.02 },
   } },
   { id: 'fan-green', label: 'Fan · green poster', swatch: [BRAND.green, BRAND.pink, BRAND.red, BRAND.blue], state: {
@@ -145,7 +134,7 @@ export const LOOKS = [
   { id: 'streamers', label: 'Streamers merge', swatch: [BRAND.blue, BRAND.green, BRAND.pink, BRAND.red], state: {
     background: BRAND.blue, palette: [BRAND.pink, BRAND.green, BRAND.red],
     shape: { template: 'streamers', count: 10, baseWidth: 0.07, spread: 1.1, pinch: 0.5, tension: 0.5, focusX: 0.5, focusY: 0.5, angle: 10, jitter: 0.6, seed: 11 },
-    fill: { mode: 'gradient', blend: 'normal', runSpread: 2 },
+    fill: { mode: 'gradient', runSpread: 2 },
     headline: { text: '2025', size: 0.5 },
   } },
 ];
