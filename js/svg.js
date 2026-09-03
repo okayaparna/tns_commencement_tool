@@ -1,5 +1,5 @@
 // SVG exporter: same scene model as the canvas renderer, serialised as vector paths.
-import { buildBeams, ribbonPolygon, stripeRanges, ribbonQuads, coreStops } from './geometry.js';
+import { buildBeams, ribbonPolygon, stripeRanges, ribbonQuads, coreStops, visibleSpan } from './geometry.js';
 import { layoutText, getImage, logoBox, textSplit, animateText, animateLogo, FALLBACK_STACK, layerVars, cssWeight } from './paint.js';
 import { fontFaceCSS, variationCSS } from './fonts.js';
 import { esc } from './util.js';
@@ -29,7 +29,7 @@ export function buildSVG(state, time = 0) {
   const defs = [], body = [], bodyFront = [];
   beams.forEach((b, bi) => {
     const into = bi < cut ? body : bodyFront;
-    const a = b.pts[0], z = b.pts[b.pts.length - 1];
+    const [a, z] = visibleSpan(b.pts, W, H, m * 0.05);
     b.stripes.forEach((st, j) => {
       const id = `g${bi}_${j}`;
       defs.push(`<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${num(a.x)}" y1="${num(a.y)}" x2="${num(z.x)}" y2="${num(z.y)}">` +

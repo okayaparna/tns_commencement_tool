@@ -335,7 +335,7 @@ function buildLeft() {
   for (const t of TEMPLATES) {
     const b = document.createElement('button'); b.className = 'tpl'; b.dataset.id = t.id; b.title = t.hint;
     b.innerHTML = `<svg viewBox="0 0 34 34" fill="none" stroke="#111" stroke-width="2.2" stroke-linecap="round">${TPL_ICONS[t.id]}</svg>${t.label}`;
-    b.addEventListener('click', () => set('shape.template', t.id));
+    b.addEventListener('click', () => patch({ shape: { template: t.id, ...(t.defaults || {}) } }));
     tpls.appendChild(b);
   }
   const sp = $('#size-preset'); sp.innerHTML = '';

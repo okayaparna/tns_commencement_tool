@@ -227,6 +227,22 @@ export function buildBeams(state, time = 0) {
   return beams;
 }
 
+// The stretch of a beam's centreline that is actually on the canvas. A ray runs thousands of
+// pixels past the frame, and hanging the gradient off its full length leaves the visible part
+// showing one stretched mid-mix instead of the palette.
+export function visibleSpan(pts, W, H, margin = 0) {
+  let lo = -1, hi = -1;
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i];
+    if (p.x >= -margin && p.x <= W + margin && p.y >= -margin && p.y <= H + margin) {
+      if (lo < 0) lo = i;
+      hi = i;
+    }
+  }
+  if (lo < 0) return [pts[0], pts[pts.length - 1]];
+  return [pts[Math.max(0, lo - 1)], pts[Math.min(pts.length - 1, hi + 1)]];
+}
+
 // Polygon (array of points) for the part of a ribbon between width fractions f0..f1 (−0.5..0.5).
 export function ribbonPolygon(pts, widths, f0 = -0.5, f1 = 0.5) {
   const L = [], R = [];

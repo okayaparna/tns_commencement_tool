@@ -14,7 +14,10 @@ then visit http://localhost:8765 (ES modules do not run from `file://`).
 
 ## What you can do
 
-- **Patterns**: rays from a focus point, weave, and streamers (curved ribbons merging).
+- **Patterns**: rays from a focus point, weave, and streamers. Width, flare, span and spread mean
+  different things in each, so picking a pattern brings its own settings with it rather than
+  carrying the last one's across — Undo puts your numbers back. The *Looks* row above sets a whole
+  design (colours, fill and type) rather than only the shape.
 - **Colour**: background is the four brand colours plus black and white; the beam palette is
   free and ordered. Solid, gradient or striped beams; blend modes so intersections mix; outline
   strokes.

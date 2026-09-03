@@ -19,10 +19,25 @@ export const SIZE_PRESETS = [
   { id: 'custom',  label: 'Custom',                          w: 1600, h: 1000 },
 ];
 
+// Each pattern carries the shape settings that make it read as itself. Width, flare, span and
+// spread mean different things per template, so carrying them across turns a good fan into a
+// pile of wedges — picking a pattern applies its own numbers (and Undo puts yours back).
 export const TEMPLATES = [
-  { id: 'rays',      label: 'Rays from focus', hint: 'Beams radiate from one point' },
-  { id: 'weave',     label: 'Weave',           hint: 'Straight streamers crossing' },
-  { id: 'streamers', label: 'Streamers',       hint: 'Curved ribbons merging' },
+  { id: 'rays', label: 'Rays from focus', hint: 'Beams fan out from one point', defaults: {
+    count: 14, baseWidth: 0.012, widthVariation: 0.6, flare: 0.5, flareCurve: 1.6,
+    focusX: 0.5, focusY: -0.15, angle: 90, span: 70, twoSided: false, jitter: 0.6, pack: 0,
+    rotate: 0, scale: 1, offsetX: 0, offsetY: 0,
+  } },
+  { id: 'weave', label: 'Weave', hint: 'Straight ribbons crossing', defaults: {
+    count: 9, baseWidth: 0.09, widthVariation: 0.35, angle: -18, span: 34, spread: 0.9,
+    focusX: 0.5, focusY: 0.5, jitter: 0.5, pack: 0,
+    rotate: 0, scale: 1, offsetX: 0, offsetY: 0,
+  } },
+  { id: 'streamers', label: 'Streamers', hint: 'Ribbons crossing at one point', defaults: {
+    count: 12, baseWidth: 0.08, widthVariation: 0.2, spread: 1.2, pinch: 0.35, tension: 0.45,
+    focusX: 0.5, focusY: 0.5, angle: -8, jitter: 0.4, pack: 0.8,
+    rotate: 0, scale: 1, offsetX: 0, offsetY: 0,
+  } },
 ];
 
 export const MOCKUPS = [

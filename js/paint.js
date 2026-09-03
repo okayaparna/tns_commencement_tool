@@ -1,5 +1,5 @@
 // Canvas renderer. Draws the asset into a 2D context whose transform maps (0,0)-(W,H).
-import { buildBeams, ribbonPolygon, stripeRanges, ribbonQuads, coreStops } from './geometry.js';
+import { buildBeams, ribbonPolygon, stripeRanges, ribbonQuads, coreStops, visibleSpan } from './geometry.js';
 import { clamp, TAU } from './util.js';
 import { resolveFamily, fontAxes, axisRange } from './fonts.js';
 
@@ -134,7 +134,7 @@ export function drawBeams(ctx, state, beams) {
   ctx.globalAlpha = f.opacity;
   const ranges = stripeRanges(beams.length ? beams[0].stripes.length : 1, f.seam);
   for (const b of beams) {
-    const a = b.pts[0], z = b.pts[b.pts.length - 1];
+    const [a, z] = visibleSpan(b.pts, W, H, m * 0.05);
     b.stripes.forEach((st, j) => {
       const poly = ribbonPolygon(b.pts, b.widths, ranges[j][0], ranges[j][1]);
       ctx.beginPath();
