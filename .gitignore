@@ -1,0 +1,7 @@
+.DS_Store
+node_modules/
+# Drop licensed font files here; they are loaded at runtime, not committed.
+fonts/*.otf
+fonts/*.ttf
+fonts/*.woff
+fonts/*.woff2

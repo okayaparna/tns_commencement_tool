@@ -1,0 +1,9 @@
+{
+  "name": "tns-commencement-studio",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Generator for The New School 2025 commencement identity: gradient beams, mockups, PNG/SVG/MP4 export.",
+  "scripts": {
+    "start": "node serve.js 8765"
+  }
+}

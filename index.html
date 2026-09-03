@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TNS Commencement Studio</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="mark"></span>
+    <strong>Commencement Studio</strong>
+    <span class="sub">The New School · Class of 2025 identity generator</span>
+  </div>
+  <div class="topbar-actions">
+    <button id="btn-undo" class="ghost" title="Undo (⌘Z)">Undo</button>
+    <button id="btn-random" class="ghost" title="New random seed (R)">Shuffle</button>
+    <button id="btn-reset" class="ghost">Reset</button>
+    <label class="ghost file-btn">Load preset<input type="file" id="file-preset" accept="application/json" hidden></label>
+    <button id="btn-save-preset" class="ghost">Save preset</button>
+    <button id="btn-export-png" class="primary">Export PNG</button>
+    <button id="btn-export-svg" class="primary">Export SVG</button>
+    <button id="btn-export-video" class="primary">Export video</button>
+  </div>
+</header>
+
+<main class="layout">
+  <aside class="panel left">
+    <section>
+      <h2>Looks</h2>
+      <div id="looks" class="looks"></div>
+    </section>
+    <section>
+      <h2>Pattern</h2>
+      <div id="templates" class="templates"></div>
+    </section>
+    <section>
+      <h2>Colours</h2>
+      <div class="row">
+        <label class="lbl">Background</label>
+        <input type="color" id="bg-color" class="swatch-input">
+      </div>
+      <div class="lbl" style="margin-top:8px">Beam palette <span class="hint">(order = beam order)</span></div>
+      <div id="palette" class="palette"></div>
+      <div class="row gap">
+        <button id="btn-add-color" class="small">+ Colour</button>
+        <button id="btn-brand-colors" class="small">Brand set</button>
+        <button id="btn-shuffle-colors" class="small">Rotate</button>
+      </div>
+    </section>
+    <section>
+      <h2>Canvas</h2>
+      <select id="size-preset"></select>
+      <div class="row gap" id="custom-size">
+        <label>W <input type="number" id="size-w" min="16" max="8000"></label>
+        <label>H <input type="number" id="size-h" min="16" max="8000"></label>
+        <button id="btn-swap-size" class="small" title="Swap width and height">⇄</button>
+      </div>
+    </section>
+    <section>
+      <h2>Fonts</h2>
+      <label class="file-btn small block">Add font file (.otf .ttf .woff)<input type="file" id="file-font" accept=".otf,.ttf,.woff,.woff2" hidden multiple></label>
+      <div id="font-list" class="font-list"></div>
+      <p class="hint">Or drop files in <code>fonts/</code> and list them in <code>fonts/fonts.json</code>.</p>
+    </section>
+  </aside>
+
+  <section class="stage-wrap">
+    <div class="stage" id="stage">
+      <canvas id="canvas"></canvas>
+      <div class="stage-info" id="stage-info"></div>
+    </div>
+    <div class="stagebar">
+      <label>Mockup <select id="mockup"></select></label>
+      <label class="toggle"><input type="checkbox" id="motion-toggle"> Motion</label>
+      <label class="toggle"><input type="checkbox" id="guides-toggle"> Guides</label>
+      <span class="spacer"></span>
+      <label>PNG scale <select id="png-scale"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option></select></label>
+      <label>Video <input type="number" id="video-duration" min="1" max="60" step="0.5" style="width:56px"> s</label>
+      <span id="video-format" class="hint"></span>
+    </div>
+  </section>
+
+  <aside class="panel right" id="controls"></aside>
+</main>
+
+<div id="toast" class="toast" hidden></div>
+<div id="progress" class="progress" hidden><div class="bar"><i></i></div><span>Recording…</span></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
