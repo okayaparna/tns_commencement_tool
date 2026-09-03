@@ -1,6 +1,7 @@
 import { DEFAULT_STATE, SIZE_PRESETS, TEMPLATES, MOCKUPS, BRAND, FONT } from './state.js';
 import { deepClone, deepMerge, clamp } from './util.js';
-import { renderAsset, layoutText, fontString, renderAssetToCanvas, getImage, logoBox, textSplit } from './paint.js';
+import { renderAsset, layoutText, fontString, renderAssetToCanvas, logoBox, textSplit } from './paint.js';
+import { MARK_COLOURS } from './mark.js';
 import { anchorPoint } from './geometry.js';
 import { drawMockup, lastPlacement } from './mockups.js';
 import { exportPNG, exportSVG, exportVideo, exportJSON, videoMime } from './export.js';
@@ -117,7 +118,7 @@ function draw() {
     let w = cw - pad * 2, h = w / mk.ratio;
     if (h > ch - pad * 2) { h = ch - pad * 2; w = h * mk.ratio; }
     const x = (cw - w) / 2, y = (ch - h) / 2;
-    const asset = renderAssetToCanvas(state, time, Math.min(2000, Math.max(w, h) * 1.2), { onImageLoad: requestRender });
+    const asset = renderAssetToCanvas(state, time, Math.min(2000, Math.max(w, h) * 1.2));
     const off = document.createElement('canvas'); off.width = Math.round(w); off.height = Math.round(h);
     const place = drawMockup(off.getContext('2d'), mk.id, off.width, off.height, asset, state, enter);
     // A bare mockup sits straight on the stage, so it gets no card behind it.
@@ -139,7 +140,7 @@ function draw() {
   setView(new DOMMatrix([k, 0, 0, k, ox, oy]));
   ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.25)'; ctx.shadowBlur = 30 * dpr; ctx.shadowOffsetY = 10 * dpr; ctx.fillStyle = '#000'; ctx.fillRect(ox, oy, W * k, H * k); ctx.restore();
   ctx.setTransform(k, 0, 0, k, ox, oy);
-  renderAsset(ctx, state, time, { onImageLoad: requestRender });
+  renderAsset(ctx, state, time);
   drawRulers();
   drawOverlay();
   stageInfo.textContent = `${state.size.w} × ${state.size.h} px · ${Math.round(k / dpr * 100)}%`;
@@ -324,10 +325,8 @@ canvas.addEventListener('pointerdown', e => {
       drag = { kind: 'anchor', start: p, sx: state.shape.focusX, sy: state.shape.focusY };
     else if (inBox(p, textBox(state.headline)))
       drag = { kind: 'text', start: p, sx: state.headline.x, sy: state.headline.y };
-    else if (state.logo.enabled && state.logo.src) {
-      const img = getImage(state.logo.src);
-      if (img && inBox(p, logoBox(state.logo, W, H, img))) drag = { kind: 'logo', start: p, sx: state.logo.x, sy: state.logo.y };
-    }
+    else if (state.logo.enabled && inBox(p, logoBox(state.logo, W, H)))
+      drag = { kind: 'logo', start: p, sx: state.logo.x, sy: state.logo.y };
   }
   if (!drag && e.altKey) drag = { kind: 'anchor', start: p, sx: state.shape.focusX, sy: state.shape.focusY, jump: true };
   if (drag) { canvas.setPointerCapture(e.pointerId); pushHistory(); }
@@ -562,18 +561,13 @@ const SCHEMA = [
     { path: 'fill.colorStep', label: 'Colour step', type: 'range', min: 0, max: 4, step: 1 },
     { path: 'fill.runSpread', label: 'Colours / beam', type: 'range', min: 1, max: 4, step: 1, when: s => s.fill.mode !== 'solid' },
     { path: 'fill.phase', label: 'Gradient shift', type: 'range', min: 0, max: 1, step: 0.005, decimals: 3, when: s => s.fill.mode !== 'solid' },
+    { path: 'motion.beams.speed', label: 'Colour run', type: 'range', min: -2, max: 2, step: 0.01 },
     { path: 'fill.centreSeam', label: 'Centre seam', type: 'range', min: 0, max: 0.9, step: 0.01 },
     { path: 'fill.core', label: 'Core heat', type: 'range', min: 0, max: 1, step: 0.01 },
     { path: 'fill.coreFocus', label: 'Core focus', type: 'range', min: 0.6, max: 8, step: 0.1, decimals: 1, when: s => s.fill.core > 0 },
   ] },
   { tab: 'motion', controls: [
     { path: 'motion.enabled', label: 'Animate', type: 'checkbox' },
-  ] },
-  { title: 'Beams', tab: 'motion', controls: [
-    { path: 'motion.beams.speed', label: 'Colour run', type: 'range', min: -2, max: 2, step: 0.01 },
-    { path: 'motion.beams.sway', label: 'Sway', type: 'range', min: 0, max: 45, step: 0.5, decimals: 1, unit: '°' },
-    { path: 'motion.beams.swaySpeed', label: 'Sway speed', type: 'range', min: 0.02, max: 2, step: 0.01 },
-    { path: 'motion.beams.drift', label: 'Anchor drift', type: 'range', min: 0, max: 1, step: 0.01 },
   ] },
   { title: 'Export', tab: 'motion', controls: [
     { path: 'motion.duration', label: 'Seconds', type: 'range', min: 1, max: 60, step: 0.5, decimals: 1 },
@@ -595,7 +589,7 @@ const SCHEMA = [
   ] },
   { title: 'Logo', tab: 'logo', controls: [
     { path: 'logo.enabled', label: 'Show', type: 'checkbox' },
-    { label: 'Image', type: 'file', label2: 'Choose PNG / SVG…', accept: 'image/*', onFile: (file) => { const r = new FileReader(); r.onload = () => patch({ logo: { src: r.result, enabled: true } }); r.readAsDataURL(file); } },
+    { path: 'logo.colour', label: 'Colour', type: 'seg', options: MARK_COLOURS },
     { path: 'logo.width', label: 'Width', type: 'range', min: 0.02, max: 1, step: 0.005, decimals: 3 },
     { path: 'logo.opacity', label: 'Opacity', type: 'range', min: 0, max: 1, step: 0.01 },
     { path: 'logo.align', label: 'Align', type: 'seg', options: [{ value: 'left', label: 'Left' }, { value: 'center', label: 'Centre' }, { value: 'right', label: 'Right' }] },

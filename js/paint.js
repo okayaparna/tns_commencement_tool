@@ -1,6 +1,7 @@
 // Canvas renderer. Draws the asset into a 2D context whose transform maps (0,0)-(W,H).
 import { buildBeams, ribbonPolygon, beamBands, ribbonQuads, coreStops, visibleSpan } from './geometry.js';
 import { clamp } from './util.js';
+import { MARK, drawMark } from './mark.js';
 import { resolveFamily, fontAxes } from './fonts.js';
 
 export const FALLBACK_STACK = '"Helvetica Neue", Helvetica, Arial, sans-serif';
@@ -49,29 +50,19 @@ export function drawTextLayer(ctx, layer, W, H) {
   ctx.restore();
 }
 
-const imgCache = new Map();
-export function getImage(src, onload) {
-  if (!src) return null;
-  let img = imgCache.get(src);
-  if (!img) {
-    img = new Image(); img.src = src; imgCache.set(src, img);
-    if (onload) img.onload = onload;
-  }
-  return img.complete && img.naturalWidth ? img : null;
-}
-export function logoBox(logo, W, H, img) {
-  const w = logo.width * W, h = w * (img.naturalHeight / img.naturalWidth);
+export function logoBox(logo, W, H) {
+  const w = logo.width * W, h = w * (MARK.h / MARK.w);
   const ax = logo.x * W, ay = logo.y * H;
   const x = logo.align === 'center' ? ax - w / 2 : logo.align === 'right' ? ax - w : ax;
   const y = logo.valign === 'middle' ? ay - h / 2 : logo.valign === 'bottom' ? ay - h : ay;
   return { x, y, w, h };
 }
-export function drawLogo(ctx, logo, W, H, onload) {
-  if (!logo.enabled || !logo.src) return;
-  const img = getImage(logo.src, onload);
-  if (!img) return;
-  const b = logoBox(logo, W, H, img);
-  ctx.save(); ctx.globalAlpha = logo.opacity; ctx.drawImage(img, b.x, b.y, b.w, b.h); ctx.restore();
+export function drawLogo(ctx, logo, W, H) {
+  if (!logo.enabled) return;
+  const b = logoBox(logo, W, H);
+  ctx.save(); ctx.globalAlpha = logo.opacity;
+  drawMark(ctx, b.x, b.y, b.w, logo.colour);
+  ctx.restore();
 }
 
 export function drawBeams(ctx, state, beams) {
@@ -135,7 +126,7 @@ export function renderAsset(ctx, state, time = 0, hooks = {}) {
   drawBeams(ctx, state, beams.slice(0, cut));
   drawTextLayer(ctx, state.headline, W, H);
   drawBeams(ctx, state, beams.slice(cut));
-  drawLogo(ctx, state.logo, W, H, hooks.onImageLoad);
+  drawLogo(ctx, state.logo, W, H);
   ctx.restore();
   return beams;
 }

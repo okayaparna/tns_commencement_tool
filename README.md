@@ -70,8 +70,13 @@ then visit http://localhost:8765 (ES modules do not run from `file://`).
   post shows two crops side by side, the 4:5 and the asset's own ratio, rising in when you pick
   it; it sits straight on the stage with no card behind it. Chrome icons are Material Symbols
   Rounded at weight 300, loaded from Google Fonts — offline, hand-drawn outlines stand in.
-- **Motion**: colour run, sway and anchor drift, plus *Export* — duration, frame rate and "fit
-  duration to a seamless loop".
+- **Motion**: the animate switch and *Export* — duration, frame rate and "fit duration to a
+  seamless loop". The colour run itself sits with the colours, under Beams, since that is what
+  it is running.
+- **Logo**: The New School mark, on by default and switchable off, in white, black or red. It is
+  the only logo — no uploads — and it is drawn as vector, so it stays sharp at poster size and
+  exports as paths in the SVG rather than an embedded bitmap. Drag it on the canvas like the
+  type.
 - **Rulers**: asset-pixel rules along the top and left, with the headline's extent shaded on
   both — under Canvas, next to Guides. They are hidden inside a tilted mockup, where a
   horizontal rule would not measure anything.
@@ -108,5 +113,6 @@ and **Logos**.
 - `js/export.js` — PNG / SVG / video / JSON export
 - `js/util.js` — maths plus the OKLab / OKLCh colour mixing
 - `js/fonts.js` — the font registry and the `fvar` reader for axes and named instances
+- `js/mark.js` — The New School mark as path data, for the logo layer and the printed pieces
 - `js/state.js` — defaults, size presets, patterns
 - `js/main.js`, `js/ui.js` — app shell and control panel

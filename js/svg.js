@@ -1,6 +1,7 @@
 // SVG exporter: same scene model as the canvas renderer, serialised as vector paths.
 import { buildBeams, ribbonPolygon, beamBands, ribbonQuads, coreStops, visibleSpan } from './geometry.js';
-import { layoutText, getImage, logoBox, textSplit, FALLBACK_STACK, layerVars, cssWeight } from './paint.js';
+import { layoutText, logoBox, textSplit, FALLBACK_STACK, layerVars, cssWeight } from './paint.js';
+import { markSVG } from './mark.js';
 import { fontFaceCSS, variationCSS } from './fonts.js';
 import { esc } from './util.js';
 
@@ -50,12 +51,9 @@ export function buildSVG(state, time = 0) {
   const fonts = [state.headline.font];
   const css = fontFaceCSS(fonts);
   let logo = '';
-  if (state.logo.enabled && state.logo.src) {
-    const img = getImage(state.logo.src);
-    if (img) {
-      const bx = logoBox(state.logo, W, H, img);
-      logo = `<image href="${state.logo.src}" x="${num(bx.x)}" y="${num(bx.y)}" width="${num(bx.w)}" height="${num(bx.h)}" opacity="${state.logo.opacity}"/>`;
-    }
+  if (state.logo.enabled) {
+    const bx = logoBox(state.logo, W, H);
+    logo = `<g opacity="${state.logo.opacity}">${markSVG(bx.x, bx.y, bx.w, state.logo.colour)}</g>`;
   }
   const text = textSVG(state.headline, W, H);
   const layer = (paths, core) =>

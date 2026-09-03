@@ -1,6 +1,6 @@
 // Turns the document state into a list of beams (ribbons) in asset pixel space.
 // A beam = centreline points + per-point widths + colour sets (one per stripe).
-import { mulberry32, lerp, clamp, TAU, cycleColorOklch, mod } from './util.js';
+import { mulberry32, lerp, clamp, cycleColorOklch, mod } from './util.js';
 
 const lerpPt = (a, b, t) => ({ x: lerp(a.x, b.x, t), y: lerp(a.y, b.y, t) });
 
@@ -42,13 +42,7 @@ export function buildBeams(state, time = 0) {
   for (let i = 0; i < n; i++) J.push({ a: rnd() - 0.5, o: rnd() - 0.5, w: rnd() - 0.5, c: rnd(), s: rnd() });
 
   const anchor = { x: s.focusX * W, y: s.focusY * H };
-  const mb = mo.beams;
-  const sway = mo.enabled ? Math.sin(time * mb.swaySpeed * TAU) * mb.sway : 0;
-  if (mo.enabled && mb.drift) {
-    anchor.x += Math.cos(time * 0.21 * TAU) * mb.drift * W * 0.5;
-    anchor.y += Math.sin(time * 0.17 * TAU) * mb.drift * H * 0.5;
-  }
-  const ang = (s.angle + sway) * Math.PI / 180;
+  const ang = s.angle * Math.PI / 180;
   const dir = { x: Math.cos(ang), y: Math.sin(ang) };
   const nor = { x: -dir.y, y: dir.x };
   const local = (u, v) => ({ x: anchor.x + u * dir.x + v * nor.x, y: anchor.y + u * dir.y + v * nor.y });

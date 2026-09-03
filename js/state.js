@@ -45,7 +45,7 @@ export const MOCKUPS = [
 ];
 
 export const DEFAULT_STATE = {
-  version: 11,
+  version: 12,
   size: { preset: 'wide', w: 1920, h: 1080 },
   background: BRAND.blue,
   palette: [BRAND.pink, BRAND.green, BRAND.red],
@@ -82,9 +82,6 @@ export const DEFAULT_STATE = {
     fps: 30,
     beams: {
       speed: 0.25,        // gradient run cycles per second
-      sway: 0,            // degrees of angle oscillation
-      swaySpeed: 0.2,
-      drift: 0,           // focus point drift (fraction)
     },
   },
   headline: {
@@ -97,6 +94,7 @@ export const DEFAULT_STATE = {
     depth: 1,             // share of beams drawn behind the text: 1 = all, 0 = none, between = woven
     rotate: 0,
   },
-  logo: { enabled: false, src: null, x: 0.96, y: 0.05, width: 0.12, align: 'right', valign: 'top', opacity: 1 },
+  // The mark is the only logo, so it carries a colour rather than a source image.
+  logo: { enabled: true, colour: '#FFFFFF', x: 0.95, y: 0.06, width: 0.16, align: 'right', valign: 'top', opacity: 1 },
   mockup: { id: 'none', showGuides: true, showRulers: false },
 };
