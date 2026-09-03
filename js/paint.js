@@ -1,5 +1,5 @@
 // Canvas renderer. Draws the asset into a 2D context whose transform maps (0,0)-(W,H).
-import { buildBeams, ribbonPolygon, stripeRanges, carveCentre, ribbonQuads, coreStops, visibleSpan } from './geometry.js';
+import { buildBeams, ribbonPolygon, beamBands, ribbonQuads, coreStops, visibleSpan } from './geometry.js';
 import { clamp } from './util.js';
 import { resolveFamily, fontAxes } from './fonts.js';
 
@@ -80,21 +80,18 @@ export function drawBeams(ctx, state, beams) {
   const f = state.fill;
   const m = Math.min(W, H);
   ctx.save();
-  const ranges = stripeRanges(beams.length ? beams[0].stripes.length : 1, f.seam);
   for (const b of beams) {
     const [a, z] = visibleSpan(b.pts, W, H, m * 0.05);
-    b.stripes.forEach((st, j) => {
-      const g = ctx.createLinearGradient(a.x, a.y, z.x, z.y);
-      st.stops.forEach(t => g.addColorStop(clamp(t.pos, 0, 1), t.color));
-      for (const [lo, hi] of carveCentre(ranges[j], f.centreSeam)) {
-        const poly = ribbonPolygon(b.pts, b.widths, lo, hi);
-        ctx.beginPath();
-        poly.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
-        ctx.closePath();
-        ctx.fillStyle = g;
-        ctx.fill();
-      }
-    });
+    const g = ctx.createLinearGradient(a.x, a.y, z.x, z.y);
+    b.fill.stops.forEach(t => g.addColorStop(clamp(t.pos, 0, 1), t.color));
+    for (const [lo, hi] of beamBands(f.centreSeam)) {
+      const poly = ribbonPolygon(b.pts, b.widths, lo, hi);
+      ctx.beginPath();
+      poly.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+      ctx.closePath();
+      ctx.fillStyle = g;
+      ctx.fill();
+    }
   }
   ctx.restore();
   drawCores(ctx, state, beams);

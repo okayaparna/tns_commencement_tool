@@ -52,7 +52,7 @@ code { background: #eee; padding: 1px 4px; border-radius: 4px; }
 .lbl { color: var(--text); }
 
 
-.templates { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.templates { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
 .tpl { border: 1px solid var(--line); border-radius: 10px; padding: 8px 4px; background: transparent; display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 11px; }
 .tpl svg { width: 34px; height: 34px; }
 .tpl.active { background: var(--accent); color: #fff; border-color: var(--accent); }

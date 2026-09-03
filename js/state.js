@@ -25,18 +25,12 @@ export const SIZE_PRESETS = [
 export const TEMPLATES = [
   { id: 'rays', label: 'Rays from focus', hint: 'Beams fan out from one point', defaults: {
     count: 14, baseWidth: 0.006, widthVariation: 0.6, outerWidth: 0.14, edgeCurve: 1.3, warp: 0,
-    focusX: 0.5, focusY: -0.15, angle: 90, span: 70, twoSided: false, jitter: 0.6, pack: 0,
+    focusX: 0.5, focusY: -0.15, angle: 90, span: 50, twoSided: true, jitter: 0.6, pack: 1,
     rotate: 0, scale: 1, offsetX: 0, offsetY: 0,
   } },
-  { id: 'weave', label: 'Weave', hint: 'Straight ribbons crossing', defaults: {
-    count: 9, baseWidth: 0.09, widthVariation: 0.35, angle: -18, span: 34, spread: 0.9,
-    focusX: 0.5, focusY: 0.5, jitter: 0.5, pack: 0,
-    rotate: 0, scale: 1, offsetX: 0, offsetY: 0,
-  } },
-  { id: 'streamers', label: 'Streamers', hint: 'Ribbons crossing at one point', defaults: {
-    count: 12, baseWidth: 0.08, widthVariation: 0.2, spread: 1.2, pinch: 0.35, tension: 0.45,
-    focusX: 0.5, focusY: 0.5, angle: -8, jitter: 0.4, pack: 0.8,
-    rotate: 0, scale: 1, offsetX: 0, offsetY: 0,
+  { id: 'weave', label: 'Weave', hint: 'Straight ribbons crossing at one point', defaults: {
+    count: 12, baseWidth: 0.08, widthVariation: 0.2, spread: 1.2, focusX: 0.5, focusY: 0.5,
+    angle: -8, jitter: 0.4, pack: 1, rotate: 0, scale: 1, offsetX: 0, offsetY: 0,
   } },
 ];
 
@@ -51,38 +45,33 @@ export const MOCKUPS = [
 ];
 
 export const DEFAULT_STATE = {
-  version: 9,
+  version: 11,
   size: { preset: 'wide', w: 1920, h: 1080 },
   background: BRAND.blue,
   palette: [BRAND.pink, BRAND.green, BRAND.red],
   shape: {
     template: 'weave',
-    count: 9,
-    baseWidth: 0.09,      // fraction of the short side
-    widthVariation: 0.35, // 0..1 random variation of width
+    count: 12,
+    baseWidth: 0.08,      // fraction of the short side
+    widthVariation: 0.2,  // 0..1 random variation of width
     outerWidth: 0.14,     // rays: stroke width where it leaves the frame (short-side fraction)
     edgeCurve: 1.4,       // rays: easing from the stroke width to the outer edge
     warp: 0,              // rays: how far the outer strokes bow away from the axis
     focusX: 0.5, focusY: 0.5,   // anchor point (focus / crossing / merge)
-    angle: -18,           // degrees, main direction
-    span: 34,             // degrees of angular spread
-    spread: 0.9,          // perpendicular spread of beams (weave / streamers)
-    twoSided: true,       // rays: extend through the focus both ways
-    pinch: 0.35,          // streamers: narrowing at the merge point (0..1)
-    tension: 0.45,        // streamers: curve tension
-    pack: 0,              // 0..1 close the gaps: widths grow toward the spacing between beams
-    jitter: 0.5,          // 0..1 randomness in angle / offset
+    angle: -8,            // degrees, main direction
+    span: 50,             // degrees of angular spread
+    spread: 1.2,          // perpendicular spread of the beams
+    twoSided: true,       // rays: mirror through the focus, running both ways
+    pack: 1,              // 0..1 close the gaps: widths grow toward the spacing between beams
+    jitter: 0.4,          // 0..1 randomness in angle / offset
     seed: 7,
     rotate: 0, scale: 1, offsetX: 0, offsetY: 0,
   },
   fill: {
-    mode: 'gradient',     // solid | gradient | stripes
+    mode: 'gradient',     // solid | gradient
     colorStep: 1,         // palette index step per beam
     runSpread: 1,         // colours per beam length (1 = one pair)
-    blendSpace: 'oklch',  // oklch | oklab | hard — how colours transition along a beam
     phase: 0,             // static gradient offset
-    stripes: 3,           // stripes mode: sub-bands per beam
-    seam: 0.06,           // gap between stripes (fraction of beam width)
     centreSeam: 0,        // gap carved down the middle of every stroke, splitting it in two
     core: 0,              // brightness of the lit centreline of each beam (0 = flat section)
     coreFocus: 2.2,       // how tightly that brightness is gathered on the centreline

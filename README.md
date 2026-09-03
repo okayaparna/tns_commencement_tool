@@ -14,7 +14,8 @@ then visit http://localhost:8765 (ES modules do not run from `file://`).
 
 ## What you can do
 
-- **Patterns**: rays from a focus point, weave, and streamers. Width, flare, span and spread mean
+- **Patterns**: rays from a focus point, and weave — straight ribbons running edge to edge
+  through one crossing point. Width, outer edge, span and spread mean
   different things in each, so picking a pattern brings its own settings with it rather than
   carrying the last one's across — Undo puts your numbers back.
 - **Colour**: picked from swatches, never a colour dialogue, so nothing off-brand can get in.
@@ -55,8 +56,8 @@ then visit http://localhost:8765 (ES modules do not run from `file://`).
   each stroke's middle, splitting it in two, whatever the fill mode.
 - **Pack**: closes the gaps. Each beam's width grows toward the spacing between its neighbours,
   so they meet edge to edge — a flare that keeps pace with the fan for rays, and for streamers
-  the shuffled exits settle into a clean X that stays flush at both edges. Streamers with *Curve*
-  at 0 are two straight runs through the crossing point. Rays with **Mirror** on run through the
+  the shuffled exits settle into a clean X that stays flush at both edges. Rays with **Mirror**
+  on run through the
   focus both ways; with Pack at 1 and a wide Span that gives the gapless symmetric burst.
 - **Sizes**: presets for screen, social, story, poster, program cover/spread, arena ribbon,
   banner, badge, or custom pixel sizes.

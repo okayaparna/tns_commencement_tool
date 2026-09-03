@@ -364,8 +364,7 @@ function hoverCursor(e) {
 // ---------- left panel ----------
 const TPL_ICONS = {
   rays: '<path d="M4 30 L17 4 M10 30 L17 4 M17 30 L17 4 M24 30 L17 4 M30 30 L17 4"/>',
-  weave: '<path d="M2 12 L32 20 M2 22 L32 14 M2 17 L32 17"/>',
-  streamers: '<path d="M2 8 C 12 8, 12 17, 17 17 S 22 26, 32 26 M2 26 C 12 26, 12 17, 17 17 S 22 8, 32 8"/>',
+  weave: '<path d="M2 6 L32 28 M2 28 L32 6 M2 17 L32 17"/>',
 };
 function buildLeft() {
   const tpls = $('#templates'); tpls.innerHTML = '';
@@ -439,7 +438,6 @@ function renderPalette() {
 }
 // ---------- right panel schema ----------
 const tpl = id => s => s.shape.template === id;
-const anyOf = (...ids) => s => ids.includes(s.shape.template);
 
 // ---------- type controls ----------
 // Icons follow Figma's: a glyph that names the property rather than a generic arrow.
@@ -548,10 +546,8 @@ const SCHEMA = [
     { path: 'shape.edgeCurve', label: 'Edge curve', type: 'range', min: 0.3, max: 4, step: 0.05, when: tpl('rays') },
     { path: 'shape.warp', label: 'Warp', type: 'range', min: -1, max: 1, step: 0.01, when: tpl('rays') },
     { path: 'shape.twoSided', label: 'Mirror', type: 'checkbox', when: tpl('rays') },
-    { path: 'shape.span', label: 'Span', type: 'range', min: 0, max: 360, step: 1, when: anyOf('rays', 'weave') },
-    { path: 'shape.spread', label: 'Spread', type: 'range', min: 0, max: 2.5, step: 0.01, when: anyOf('weave', 'streamers') },
-    { path: 'shape.pinch', label: 'Pinch', type: 'range', min: 0, max: 0.95, step: 0.01, when: tpl('streamers') },
-    { path: 'shape.tension', label: 'Curve', type: 'range', min: 0, max: 1, step: 0.01, when: tpl('streamers') },
+    { path: 'shape.span', label: 'Span', type: 'range', min: 0, max: 360, step: 1, when: tpl('rays') },
+    { path: 'shape.spread', label: 'Spread', type: 'range', min: 0, max: 2.5, step: 0.01, when: tpl('weave') },
     { path: 'shape.focusX', label: 'Anchor X', type: 'range', min: -0.5, max: 1.5, step: 0.005, decimals: 3 },
     { path: 'shape.focusY', label: 'Anchor Y', type: 'range', min: -0.5, max: 1.5, step: 0.005, decimals: 3 },
     { path: 'shape.pack', label: 'Pack', type: 'range', min: 0, max: 1, step: 0.01 },
@@ -560,16 +556,10 @@ const SCHEMA = [
     { path: 'shape.offsetX', label: 'Offset X', type: 'range', min: -1, max: 1, step: 0.005, decimals: 3 },
     { path: 'shape.offsetY', label: 'Offset Y', type: 'range', min: -1, max: 1, step: 0.005, decimals: 3 },
     { type: 'sublabel', text: 'Stroke & colour' },
-    { path: 'fill.mode', label: 'Fill', type: 'seg', options: [{ value: 'solid', label: 'Solid' }, { value: 'gradient', label: 'Gradient' }, { value: 'stripes', label: 'Stripes' }] },
+    { path: 'fill.mode', label: 'Fill', type: 'seg', options: [{ value: 'solid', label: 'Solid' }, { value: 'gradient', label: 'Gradient' }] },
     { path: 'fill.colorStep', label: 'Colour step', type: 'range', min: 0, max: 4, step: 1 },
     { path: 'fill.runSpread', label: 'Colours / beam', type: 'range', min: 1, max: 4, step: 1, when: s => s.fill.mode !== 'solid' },
-    { path: 'fill.blendSpace', label: 'Mix', type: 'seg', when: s => s.fill.mode !== 'solid', options: [
-      { value: 'oklch', label: 'Arc', title: 'Travel round the hue wheel — mixes stay saturated' },
-      { value: 'oklab', label: 'Direct', title: 'Shortest path — can pass through grey' },
-      { value: 'hard', label: 'Hard', title: 'No mixing at all: crisp colour bands' } ] },
     { path: 'fill.phase', label: 'Gradient shift', type: 'range', min: 0, max: 1, step: 0.005, decimals: 3, when: s => s.fill.mode !== 'solid' },
-    { path: 'fill.stripes', label: 'Stripes', type: 'range', min: 2, max: 8, step: 1, when: s => s.fill.mode === 'stripes' },
-    { path: 'fill.seam', label: 'Seam width', type: 'range', min: 0, max: 0.6, step: 0.01, when: s => s.fill.mode === 'stripes' },
     { path: 'fill.centreSeam', label: 'Centre seam', type: 'range', min: 0, max: 0.9, step: 0.01 },
     { path: 'fill.core', label: 'Core heat', type: 'range', min: 0, max: 1, step: 0.01 },
     { path: 'fill.coreFocus', label: 'Core focus', type: 'range', min: 0.6, max: 8, step: 0.1, decimals: 1, when: s => s.fill.core > 0 },

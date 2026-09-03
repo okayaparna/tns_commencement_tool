@@ -1,5 +1,5 @@
 // SVG exporter: same scene model as the canvas renderer, serialised as vector paths.
-import { buildBeams, ribbonPolygon, stripeRanges, carveCentre, ribbonQuads, coreStops, visibleSpan } from './geometry.js';
+import { buildBeams, ribbonPolygon, beamBands, ribbonQuads, coreStops, visibleSpan } from './geometry.js';
 import { layoutText, getImage, logoBox, textSplit, FALLBACK_STACK, layerVars, cssWeight } from './paint.js';
 import { fontFaceCSS, variationCSS } from './fonts.js';
 import { esc } from './util.js';
@@ -24,19 +24,16 @@ export function buildSVG(state, time = 0) {
   const f = state.fill;
   const m = Math.min(W, H);
   const beams = buildBeams(state, time);
-  const ranges = stripeRanges(beams.length ? beams[0].stripes.length : 1, f.seam);
   const cut = textSplit(state.headline, beams.length);
   const defs = [], body = [], bodyFront = [];
   beams.forEach((b, bi) => {
     const into = bi < cut ? body : bodyFront;
     const [a, z] = visibleSpan(b.pts, W, H, m * 0.05);
-    b.stripes.forEach((st, j) => {
-      const id = `g${bi}_${j}`;
-      defs.push(`<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${num(a.x)}" y1="${num(a.y)}" x2="${num(z.x)}" y2="${num(z.y)}">` +
-        st.stops.map(t => `<stop offset="${num(t.pos * 100)}%" stop-color="${t.color}"/>`).join('') + '</linearGradient>');
-      for (const [lo, hi] of carveCentre(ranges[j], f.centreSeam))
-        into.push(`<path d="${pathOf(ribbonPolygon(b.pts, b.widths, lo, hi))}" fill="url(#${id})"/>`);
-    });
+    const id = `g${bi}`;
+    defs.push(`<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${num(a.x)}" y1="${num(a.y)}" x2="${num(z.x)}" y2="${num(z.y)}">` +
+      b.fill.stops.map(t => `<stop offset="${num(t.pos * 100)}%" stop-color="${t.color}"/>`).join('') + '</linearGradient>');
+    for (const [lo, hi] of beamBands(f.centreSeam))
+      into.push(`<path d="${pathOf(ribbonPolygon(b.pts, b.widths, lo, hi))}" fill="url(#${id})"/>`);
   });
 
   // The lit centreline: one gradient per length-wise quad, running edge to edge.

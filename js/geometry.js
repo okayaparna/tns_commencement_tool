@@ -1,75 +1,35 @@
 // Turns the document state into a list of beams (ribbons) in asset pixel space.
 // A beam = centreline points + per-point widths + colour sets (one per stripe).
-import { mulberry32, lerp, clamp, TAU, cycleColorOklab, cycleColorOklch, mod } from './util.js';
+import { mulberry32, lerp, clamp, TAU, cycleColorOklch, mod } from './util.js';
 
-const bell = (t, width = 0.18) => Math.exp(-(((t - 0.5) / width) ** 2));
-
-// Liang–Barsky clip of segment p0→p1 to the rectangle expanded by `margin`.
-function clipSegment(p0, p1, W, H, margin) {
-  let t0 = 0, t1 = 1;
-  const dx = p1.x - p0.x, dy = p1.y - p0.y;
-  const checks = [[-dx, p0.x + margin], [dx, W + margin - p0.x], [-dy, p0.y + margin], [dy, H + margin - p0.y]];
-  for (const [p, q] of checks) {
-    if (p === 0) { if (q < 0) return null; continue; }
-    const r = q / p;
-    if (p < 0) { if (r > t1) return null; if (r > t0) t0 = r; }
-    else { if (r < t0) return null; if (r < t1) t1 = r; }
-  }
-  return [{ x: p0.x + dx * t0, y: p0.y + dy * t0 }, { x: p0.x + dx * t1, y: p0.y + dy * t1 }];
-}
-
-function sampleLine(a, b, N) {
-  const pts = [];
-  for (let k = 0; k <= N; k++) pts.push({ x: lerp(a.x, b.x, k / N), y: lerp(a.y, b.y, k / N) });
-  return pts;
-}
-function cubic(p0, p1, p2, p3, t) {
-  const u = 1 - t;
-  return {
-    x: u * u * u * p0.x + 3 * u * u * t * p1.x + 3 * u * t * t * p2.x + t * t * t * p3.x,
-    y: u * u * u * p0.y + 3 * u * u * t * p1.y + 3 * u * t * t * p2.y + t * t * t * p3.y,
-  };
-}
+const lerpPt = (a, b, t) => ({ x: lerp(a.x, b.x, t), y: lerp(a.y, b.y, t) });
 
 // Closed colour cycle that reads as a plain A→B(→C) gradient at phase 0 and loops seamlessly.
 export function colorCycle(colors) {
   if (colors.length <= 2) return colors.slice();
   return colors.concat(colors.slice(1, -1).reverse());
 }
-// Gradient stops for the visible window of the cycle, shifted by phase (0..1 = one full loop).
-// space: 'oklch' (hue-arc, keeps mixes saturated), 'oklab' (straight line), 'hard' (crisp bands).
 // Anti-mud: mid-gradient chroma is held up toward the more saturated end. Fixed rather than
 // exposed — there is no useful reason to ask for a muddier mix.
 const VIVIDNESS = 0.85;
-export function gradientStops(colors, phase, space = 'oklch') {
+
+// Gradient stops for the visible window of the cycle, shifted by phase (0..1 = one full loop).
+// Colours always travel the shorter hue arc: a straight line between two hues passes close to
+// the neutral axis, which is where brand pink into brand green turns to mud.
+export function gradientStops(colors, phase) {
   if (colors.length === 1) return [{ pos: 0, color: colors[0] }, { pos: 1, color: colors[0] }];
   const cycle = colorCycle(colors);
   const n = cycle.length;
   const win = (colors.length - 1) / n;         // fraction of the cycle shown on the ribbon
   const u0 = mod(phase, 1), u1 = u0 + win;
   const at = u => (u - u0) / win;
-
-  if (space === 'hard') {
-    // Each colour holds its full band, then jumps: two stops at every boundary.
-    const stops = [{ pos: 0, color: cycleColorHard(cycle, u0) }];
-    for (let j = 0; j <= 2 * n; j++) {
-      const u = j / n;
-      if (u <= u0 || u >= u1) continue;
-      stops.push({ pos: at(u), color: cycleColorHard(cycle, u - 1e-6) });
-      stops.push({ pos: at(u), color: cycleColorHard(cycle, u + 1e-6) });
-    }
-    stops.push({ pos: 1, color: cycleColorHard(cycle, u1 - 1e-6) });
-    return stops;
-  }
-  // The browser only lerps in sRGB between the stops we hand it, so sub-sample each
-  // segment finely enough that its straight lines follow the perceptual path we want.
-  const mix = space === 'oklab' ? cycleColorOklab : (c, u) => cycleColorOklch(c, u, VIVIDNESS);
+  // The browser only lerps in sRGB between the stops we hand it, so sub-sample each segment
+  // finely enough that its straight lines follow the perceptual path we want.
   const SUB = 8;
   const us = new Set([u0, u1]);
   for (let j = 0; j <= 2 * n * SUB; j++) { const u = j / (n * SUB); if (u > u0 && u < u1) us.add(u); }
-  return [...us].sort((a, b) => a - b).map(u => ({ pos: at(u), color: mix(cycle, u) }));
+  return [...us].sort((a, b) => a - b).map(u => ({ pos: at(u), color: cycleColorOklch(cycle, u, VIVIDNESS) }));
 }
-function cycleColorHard(cycle, u) { return cycle[Math.floor(mod(u, 1) * cycle.length) % cycle.length]; }
 
 export function buildBeams(state, time = 0) {
   const { w: W, h: H } = state.size;
@@ -107,8 +67,8 @@ export function buildBeams(state, time = 0) {
   const beams = [];
   const push = (i, pts, widths) => beams.push({ i, pts, widths });
 
-  // Straight beams are clipped to the canvas, but the global rotate/scale/offset is applied
-  // afterwards — so clip to the region that *maps onto* the canvas, not the canvas itself.
+  // The global rotate/scale/offset is applied after the beams are built, so "what is on screen"
+  // means the region that *maps onto* the canvas, not the canvas itself.
   const clipRect = (() => {
     const rot = -s.rotate * Math.PI / 180, cr = Math.cos(rot), sr = Math.sin(rot);
     const inv = p => {
@@ -127,14 +87,6 @@ export function buildBeams(state, time = 0) {
     Math.hypot(clipRect.x1 - anchor.x, clipRect.y1 - anchor.y),
     Math.hypot(clipRect.x0 - anchor.x, clipRect.y1 - anchor.y));
 
-  // clipSegment works on (0,0)-(W,H) plus a margin, so shift into that frame and back.
-  const clipToView = (p0, p1, margin) => {
-    const off = { x: clipRect.x0, y: clipRect.y0 };
-    const seg = clipSegment(
-      { x: p0.x - off.x, y: p0.y - off.y }, { x: p1.x - off.x, y: p1.y - off.y },
-      clipRect.x1 - clipRect.x0, clipRect.y1 - clipRect.y0, margin);
-    return seg && seg.map(p => ({ x: p.x + off.x, y: p.y + off.y }));
-  };
 
   switch (s.template) {
     case 'rays': {
@@ -171,21 +123,8 @@ export function buildBeams(state, time = 0) {
       }
       break;
     }
+    // Weave: every stroke runs edge to edge through one crossing point, in two straight runs.
     case 'weave': {
-      const span = s.span * Math.PI / 180;
-      for (let i = 0; i < n; i++) {
-        const a = ang + (frac(i) - 0.5) * span + J[i].a * s.jitter * gap * span * 0.6;
-        const d = { x: Math.cos(a), y: Math.sin(a) }, nn = { x: -d.y, y: d.x };
-        const off = (frac(i) - 0.5) * s.spread * m + J[i].o * s.jitter * gap * m * 0.35;
-        const c = { x: anchor.x + nn.x * off, y: anchor.y + nn.y * off };
-        const w = widthOf(i, spacing(s.spread * m));
-        const seg = clipToView({ x: c.x - d.x * diag * 4, y: c.y - d.y * diag * 4 }, { x: c.x + d.x * diag * 4, y: c.y + d.y * diag * 4 }, w);
-        if (!seg) continue;
-        push(i, sampleLine(seg[0], seg[1], 8), new Array(9).fill(w));
-      }
-      break;
-    }
-    case 'streamers': {
       const L = Math.max(diag * 1.3, reach * 2.2);
       const order = [...Array(n).keys()].sort((a, b) => J[a].s - J[b].s); // shuffled exits so ribbons cross
       for (let i = 0; i < n; i++) {
@@ -196,15 +135,12 @@ export function buildBeams(state, time = 0) {
           + J[i].a * s.jitter * gap * H * 0.25;
         const vM = J[i].c * s.jitter * gap * m * 0.06 * (i % 2 ? 1 : -1);
         const A = { x: -L / 2, y: vA }, M = { x: 0, y: vM }, B = { x: L / 2, y: vB };
-        const k = s.tension * L / 2;
-        const N = 30, pts = [], widths = [];
+        const N = 8, pts = [], widths = [], w = widthOf(i, spacing(s.spread * H));
         for (let j = 0; j <= 2 * N; j++) {
           const t = j / (2 * N);
-          const p = t <= 0.5
-            ? cubic(A, { x: A.x + k, y: A.y }, { x: M.x - k * 0.6, y: M.y }, M, t * 2)
-            : cubic(M, { x: M.x + k * 0.6, y: M.y }, { x: B.x - k, y: B.y }, B, (t - 0.5) * 2);
+          const p = t <= 0.5 ? lerpPt(A, M, t * 2) : lerpPt(M, B, (t - 0.5) * 2);
           pts.push(local(p.x, p.y));
-          widths.push(widthOf(i, spacing(s.spread * H)) * (1 - s.pinch * bell(t, 0.16)));
+          widths.push(w);
         }
         push(i, pts, widths);
       }
@@ -226,16 +162,12 @@ export function buildBeams(state, time = 0) {
   // Colours.
   const pal = state.palette.length ? state.palette : ['#FFFFFF'];
   const phase = mod(f.phase + (mo.enabled ? time * mo.beams.speed : 0), 1);
-  const stripes = f.mode === 'stripes' ? Math.max(1, Math.round(f.stripes)) : 1;
   for (const b of beams) {
     const base = Math.round(b.i * f.colorStep);
-    b.stripes = [];
-    for (let j = 0; j < stripes; j++) {
-      const colors = [];
-      const cnt = f.mode === 'solid' ? 1 : Math.max(1, Math.round(f.runSpread)) + 1;
-      for (let c = 0; c < cnt; c++) colors.push(pal[mod(base + j + c, pal.length)]);
-      b.stripes.push({ colors, stops: gradientStops(colors, phase, f.blendSpace) });
-    }
+    const colors = [];
+    const cnt = f.mode === 'solid' ? 1 : Math.max(1, Math.round(f.runSpread)) + 1;
+    for (let c = 0; c < cnt; c++) colors.push(pal[mod(base + c, pal.length)]);
+    b.fill = { colors, stops: gradientStops(colors, phase) };
     b.phase = phase;
   }
   return beams;
@@ -318,19 +250,8 @@ export function coreStops(core, focus, steps = 11) {
   return out;
 }
 
-// Width-fraction ranges for each stripe of a beam.
-export function stripeRanges(count, seam) {
-  const out = [];
-  const g = count > 1 ? clamp(seam, 0, 0.9) / count : 0;
-  for (let j = 0; j < count; j++) {
-    out.push([-0.5 + j / count + g / 2, -0.5 + (j + 1) / count - g / 2]);
-  }
-  return out;
-}
-
-// One stripe's range with a gap taken out of the stroke's centreline. Returns the one or two
-// pieces that survive, so a stripe keeps its own colour on both sides of the seam.
-export function carveCentre([lo, hi], centre) {
+// A beam's width, with `centre` taken out of its middle: the one or two bands that survive.
+export function beamBands(centre, lo = -0.5, hi = 0.5) {
   const c = clamp(centre || 0, 0, 0.98);
   if (!c) return [[lo, hi]];
   const a = -c / 2, b = c / 2;
