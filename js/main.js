@@ -1,4 +1,4 @@
-import { DEFAULT_STATE, SIZE_PRESETS, TEMPLATES, MOCKUPS, LOOKS, BRAND, FONT } from './state.js';
+import { DEFAULT_STATE, SIZE_PRESETS, TEMPLATES, MOCKUPS, BRAND, FONT } from './state.js';
 import { deepClone, deepMerge, clamp } from './util.js';
 import { renderAsset, layoutText, fontString, renderAssetToCanvas, getImage, logoBox, textSplit } from './paint.js';
 import { anchorPoint } from './geometry.js';
@@ -368,15 +368,6 @@ const TPL_ICONS = {
   streamers: '<path d="M2 8 C 12 8, 12 17, 17 17 S 22 26, 32 26 M2 26 C 12 26, 12 17, 17 17 S 22 8, 32 8"/>',
 };
 function buildLeft() {
-  const looks = $('#looks'); looks.innerHTML = '';
-  for (const l of LOOKS) {
-    const b = document.createElement('button'); b.className = 'look'; b.dataset.id = l.id;
-    const sw = document.createElement('span'); sw.className = 'sw';
-    sw.style.background = `conic-gradient(${l.swatch.map((c, i) => `${c} ${i * 25}% ${(i + 1) * 25}%`).join(',')})`;
-    b.append(sw, document.createTextNode(l.label));
-    b.addEventListener('click', () => { const keepSize = l.state.size ? {} : { size: state.size }; replaceState(deepMerge(deepMerge(deepClone(DEFAULT_STATE), l.state), keepSize)); activeLook = l.id; syncUI(); });
-    looks.appendChild(b);
-  }
   const tpls = $('#templates'); tpls.innerHTML = '';
   for (const t of TEMPLATES) {
     const b = document.createElement('button'); b.className = 'tpl'; b.dataset.id = t.id; b.title = t.hint;
@@ -411,7 +402,6 @@ function buildLeft() {
 
   $('#video-duration').addEventListener('change', e => set('motion.duration', clamp(+e.target.value || 6, 1, 60)));
 }
-let activeLook = null;
 // The palette is drawn from the six brand colours and nothing else, so a chip opens a picker
 // of those rather than the browser's colour dialogue.
 function openSwatchPicker(anchor, onPick) {
@@ -633,7 +623,6 @@ document.querySelectorAll('.panel-tabs button').forEach(b => b.addEventListener(
 // ---------- sync ----------
 function syncUI() {
   document.querySelectorAll('.tpl').forEach(b => b.classList.toggle('active', b.dataset.id === state.shape.template));
-  document.querySelectorAll('.look').forEach(b => b.classList.toggle('active', b.dataset.id === activeLook));
   $('#size-preset').value = state.size.preset;
   $('#size-w').value = state.size.w; $('#size-h').value = state.size.h;
   document.querySelectorAll('.sw-btn').forEach(b => b.classList.toggle('active', b.dataset.color.toLowerCase() === state.background.toLowerCase()));
@@ -651,7 +640,7 @@ let toastTimer;
 function toast(msg, ms = 2600) { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => (t.hidden = true), ms); }
 $('#btn-undo').addEventListener('click', undo);
 $('#btn-random').addEventListener('click', () => set('shape.seed', Math.floor(Math.random() * 999) + 1));
-$('#btn-reset').addEventListener('click', () => { activeLook = null; replaceState(deepClone(DEFAULT_STATE)); });
+$('#btn-reset').addEventListener('click', () => replaceState(deepClone(DEFAULT_STATE)));
 // One Export button. The attached chevron picks the file type and relabels the button.
 const EXPORTS = {
   png: { label: 'Export PNG', run: async () => {

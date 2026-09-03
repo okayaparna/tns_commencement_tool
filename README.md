@@ -16,8 +16,7 @@ then visit http://localhost:8765 (ES modules do not run from `file://`).
 
 - **Patterns**: rays from a focus point, weave, and streamers. Width, flare, span and spread mean
   different things in each, so picking a pattern brings its own settings with it rather than
-  carrying the last one's across — Undo puts your numbers back. The *Looks* row above sets a whole
-  design (colours, fill and type) rather than only the shape.
+  carrying the last one's across — Undo puts your numbers back.
 - **Colour**: picked from swatches, never a colour dialogue, so nothing off-brand can get in.
   The background is the four brand colours plus black and white. Beams are the four colours
   only — black and white are ground, never stroke — and never the colour the background is
@@ -105,5 +104,5 @@ and **Logos**.
 - `js/export.js` — PNG / SVG / video / JSON export
 - `js/util.js` — maths plus the OKLab / OKLCh colour mixing
 - `js/fonts.js` — the font registry and the `fvar` reader for axes and named instances
-- `js/state.js` — defaults, size presets, looks
+- `js/state.js` — defaults, size presets, patterns
 - `js/main.js`, `js/ui.js` — app shell and control panel

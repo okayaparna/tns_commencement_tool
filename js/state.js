@@ -1,4 +1,4 @@
-// Default document state, size presets, templates and built-in looks.
+// Default document state, size presets and the pattern templates.
 
 export const FONT = 'Neue Display Next Variable';
 
@@ -111,30 +111,3 @@ export const DEFAULT_STATE = {
   logo: { enabled: false, src: null, x: 0.96, y: 0.05, width: 0.12, align: 'right', valign: 'top', opacity: 1 },
   mockup: { id: 'none', showGuides: true, showRulers: false },
 };
-
-// Built-in looks: partial states merged onto the defaults.
-export const LOOKS = [
-  { id: 'weave-blue', label: 'Weave · blue', swatch: [BRAND.blue, BRAND.pink, BRAND.green, BRAND.red], state: {
-    background: BRAND.blue, palette: [BRAND.pink, BRAND.green, BRAND.red],
-    shape: { template: 'weave', count: 9, baseWidth: 0.09, angle: -18, span: 34, spread: 0.9, jitter: 0.5, seed: 7 },
-    fill: { mode: 'gradient' }, headline: { text: '2025', size: 0.62 },
-  } },
-  { id: 'fan-pink', label: 'Fan · pink poster', swatch: [BRAND.pink, BRAND.red, BRAND.blue, BRAND.green], state: {
-    background: BRAND.pink, palette: [BRAND.red, BRAND.blue, BRAND.green],
-    shape: { template: 'rays', count: 14, baseWidth: 0.006, outerWidth: 0.14, edgeCurve: 1.3, focusX: 0.5, focusY: -0.15, angle: 90, span: 70, twoSided: false, jitter: 0.6, seed: 3, widthVariation: 0.6 },
-    fill: { mode: 'stripes', stripes: 3, seam: 0.04 },
-    headline: { text: '20\n25', size: 0.42, lineHeight: 0.84, letterSpacing: -0.02 },
-  } },
-  { id: 'fan-green', label: 'Fan · green poster', swatch: [BRAND.green, BRAND.pink, BRAND.red, BRAND.blue], state: {
-    background: BRAND.green, palette: [BRAND.pink, BRAND.red, BRAND.blue],
-    shape: { template: 'rays', count: 14, baseWidth: 0.006, outerWidth: 0.14, edgeCurve: 1.3, focusX: 0.55, focusY: -0.15, angle: 90, span: 70, twoSided: false, jitter: 0.6, seed: 5, widthVariation: 0.6 },
-    fill: { mode: 'stripes', stripes: 3, seam: 0.04 },
-    headline: { text: '20\n25', size: 0.42, lineHeight: 0.84, letterSpacing: -0.02 },
-  } },
-  { id: 'streamers', label: 'Streamers merge', swatch: [BRAND.blue, BRAND.green, BRAND.pink, BRAND.red], state: {
-    background: BRAND.blue, palette: [BRAND.pink, BRAND.green, BRAND.red],
-    shape: { template: 'streamers', count: 10, baseWidth: 0.07, spread: 1.1, pinch: 0.5, tension: 0.5, focusX: 0.5, focusY: 0.5, angle: 10, jitter: 0.6, seed: 11 },
-    fill: { mode: 'gradient', runSpread: 2 },
-    headline: { text: '2025', size: 0.5 },
-  } },
-];
