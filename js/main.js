@@ -261,8 +261,9 @@ function drawOverlay() {
     ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.fill(); ctx.strokeStyle = '#111'; ctx.lineWidth = 2 * dpr; ctx.stroke();
     ctx.beginPath(); ctx.arc(a.x, a.y, 3.2 * dpr, 0, Math.PI * 2); ctx.fillStyle = '#111'; ctx.fill();
   }
-  // The text frame and its corner grip are always live — that is how you move and scale.
-  const cs = textCorners(state.headline);
+  // The frame and its grip belong with the guides: turning them off gives a clean preview.
+  // Dragging the type itself stays live either way — the move cursor still finds it.
+  const cs = state.mockup.showGuides ? textCorners(state.headline) : null;
   if (cs) {
     const pts = cs.map(toStage);
     ctx.beginPath();
@@ -303,6 +304,7 @@ function toDevice(e) {
 const inBox = (p, b) => b && p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h;
 // Hit the grip in device space so it stays the same size however the mockup scales the asset.
 function onGrip(e) {
+  if (!state.mockup.showGuides) return false;   // nothing drawn, nothing to grab
   const g = scaleGrip(state.headline);
   if (!g) return false;
   const d = toDevice(e);

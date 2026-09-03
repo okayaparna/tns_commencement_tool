@@ -36,7 +36,8 @@ then visit http://localhost:8765 (ES modules do not run from `file://`).
   Mid-gradient chroma is always held up toward the more saturated of the two colours, so a mix
   never sags toward grey.
 - **Direct manipulation**: drag the headline to move it and its corner grip to scale it, right on
-  the canvas — and inside a mockup too, tilted booklet included, since the stage inverts whatever
+  the canvas. The frame and grip come with *Guides & anchor*, so turning those off gives a clean
+  preview; dragging the type itself still works either way — and inside a mockup too, tilted booklet included, since the stage inverts whatever
   transform the mockup used. Positions snap to centre and thirds; hold Shift to disable. The
   anchor handle and centre lines come with *Guides & anchor* under Canvas; Alt-drag jumps the
   anchor.
@@ -63,8 +64,8 @@ then visit http://localhost:8765 (ES modules do not run from `file://`).
   banner, badge, or custom pixel sizes.
 - **Mockups**: arena jumbotron, program booklet, poster on wall, phone story, social post, name
   badge. The booklet and badge carry the red information band the printed pieces have — place,
-  date and ceremony, set in the brand face, with the mark's space reserved since that is placed
-  by hand. The story carries real Instagram chrome — progress segments, poster row, reply bar and
+  date and ceremony, set in the brand face beside the mark. The badge is the same red panel with
+  the mark, the wearer's name and their school. The story carries real Instagram chrome — progress segments, poster row, reply bar and
   the scrims behind them — so you can see the band your type has to stay clear of. The social
   post shows two crops side by side, the 4:5 and the asset's own ratio, rising in when you pick
   it; it sits straight on the stage with no card behind it. Chrome icons are Material Symbols
