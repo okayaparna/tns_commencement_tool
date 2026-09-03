@@ -1,6 +1,6 @@
 import { DEFAULT_STATE, SIZE_PRESETS, TEMPLATES, MOCKUPS, LOOKS, BLENDS, BRAND, FONT } from './state.js';
 import { deepClone, deepMerge, clamp } from './util.js';
-import { renderAsset, layoutText, fontString, renderAssetToCanvas, getImage, logoBox, textSplit, animateText, animateLogo } from './paint.js';
+import { renderAsset, layoutText, fontString, renderAssetToCanvas, getImage, logoBox, textSplit } from './paint.js';
 import { anchorPoint } from './geometry.js';
 import { drawMockup, lastPlacement } from './mockups.js';
 import { exportPNG, exportSVG, exportVideo, exportJSON, videoMime } from './export.js';
@@ -45,6 +45,10 @@ let view = { m: null, inv: null, s: 1, dpr: 1 };
 const setView = m => { view.m = m; view.inv = m.inverse(); view.s = Math.hypot(m.a, m.b); };
 let time = 0, lastT = null, raf = null, needsRender = true;
 let lastMockup = null, mockupAt = 0;   // drives the mockup's entrance
+// Set by draw() while a mockup is still animating in. draw() must never call requestRender()
+// itself: frame() has already cleared `raf`, so that would start a second rAF chain on top of
+// the one frame() is about to start, and the chains double every frame until the tab locks.
+let entering = false;
 
 function resize() {
   const r = stage.getBoundingClientRect();
@@ -60,8 +64,8 @@ function frame(now) {
   raf = null;
   if (state.motion.enabled) { if (lastT != null) time += (now - lastT) / 1000; lastT = now; }
   else lastT = null;
-  if (needsRender || state.motion.enabled) { draw(); needsRender = false; }
-  if (state.motion.enabled) raf = requestAnimationFrame(frame);
+  if (needsRender || state.motion.enabled || entering) { draw(); needsRender = false; }
+  if (state.motion.enabled || entering) raf = requestAnimationFrame(frame);
 }
 
 function draw() {
@@ -73,6 +77,7 @@ function draw() {
   // Tracked against the chosen mockup, not the branch, so leaving and coming back replays it.
   if (state.mockup.id !== lastMockup) { lastMockup = state.mockup.id; mockupAt = performance.now(); }
   const enter = Math.min(1, (performance.now() - mockupAt) / 600);
+  entering = enter < 1 && !!(mk && mk.ratio);
   if (mk && mk.ratio) {
     let w = cw - pad * 2, h = w / mk.ratio;
     if (h > ch - pad * 2) { h = ch - pad * 2; w = h * mk.ratio; }
@@ -85,7 +90,6 @@ function draw() {
       ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.25)'; ctx.shadowBlur = 30 * dpr; ctx.shadowOffsetY = 10 * dpr; ctx.fillStyle = '#000'; ctx.fillRect(x, y, w, h); ctx.restore();
     }
     ctx.drawImage(off, x, y);
-    if (enter < 1) requestRender();
     if (place) {
       setView(new DOMMatrix().translate(x, y).multiply(place.matrix)
         .translate(place.dx, place.dy).scale(place.dw / state.size.w, place.dh / state.size.h));
@@ -107,7 +111,6 @@ function draw() {
 }
 
 // Asset space -> canvas device px.
-const animatedHeadline = () => animateText(state, time);
 const toStage = p => { const q = view.m.transformPoint(new DOMPoint(p.x, p.y)); return { x: q.x, y: q.y }; };
 
 // The text's four corners in asset space, rotated with it so the box tracks the type.
@@ -155,7 +158,7 @@ function drawRulers() {
   ctx.fillRect(0, 0, cw, R); ctx.fillRect(0, 0, R, ch);
 
   // The selected text's extent, shaded on both rules the way Figma shows a selection.
-  const b = textBox(animatedHeadline());
+  const b = textBox(state.headline);
   if (b) {
     ctx.fillStyle = 'rgba(17,17,20,.10)';
     ctx.fillRect(ox + b.x * sx, 0, b.w * sx, R);
@@ -224,14 +227,14 @@ function drawOverlay() {
     ctx.beginPath(); ctx.arc(a.x, a.y, 3.2 * dpr, 0, Math.PI * 2); ctx.fillStyle = '#111'; ctx.fill();
   }
   // The text frame and its corner grip are always live — that is how you move and scale.
-  const cs = textCorners(animatedHeadline());
+  const cs = textCorners(state.headline);
   if (cs) {
     const pts = cs.map(toStage);
     ctx.beginPath();
     pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
     ctx.closePath();
     ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = dpr; ctx.stroke();
-    const g = scaleGrip(animatedHeadline());
+    const g = scaleGrip(state.headline);
     const r = HANDLE * dpr;
     ctx.beginPath(); ctx.rect(g.x - r, g.y - r, r * 2, r * 2);
     ctx.fillStyle = '#fff'; ctx.fill(); ctx.strokeStyle = '#111'; ctx.lineWidth = 1.5 * dpr; ctx.stroke();
@@ -265,7 +268,7 @@ function toDevice(e) {
 const inBox = (p, b) => b && p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h;
 // Hit the grip in device space so it stays the same size however the mockup scales the asset.
 function onGrip(e) {
-  const g = scaleGrip(animatedHeadline());
+  const g = scaleGrip(state.headline);
   if (!g) return false;
   const d = toDevice(e);
   return Math.abs(d.x - g.x) < (HANDLE + 3) * view.dpr && Math.abs(d.y - g.y) < (HANDLE + 3) * view.dpr;
@@ -282,11 +285,11 @@ canvas.addEventListener('pointerdown', e => {
     const a = anchorPoint(state);
     if (state.mockup.showGuides && Math.hypot(p.x - a.x, p.y - a.y) < 20 / view.s * view.dpr)
       drag = { kind: 'anchor', start: p, sx: state.shape.focusX, sy: state.shape.focusY };
-    else if (inBox(p, textBox(animatedHeadline())))
+    else if (inBox(p, textBox(state.headline)))
       drag = { kind: 'text', start: p, sx: state.headline.x, sy: state.headline.y };
     else if (state.logo.enabled && state.logo.src) {
       const img = getImage(state.logo.src);
-      if (img && inBox(p, logoBox(animateLogo(state, time), W, H, img))) drag = { kind: 'logo', start: p, sx: state.logo.x, sy: state.logo.y };
+      if (img && inBox(p, logoBox(state.logo, W, H, img))) drag = { kind: 'logo', start: p, sx: state.logo.x, sy: state.logo.y };
     }
   }
   if (!drag && e.altKey) drag = { kind: 'anchor', start: p, sx: state.shape.focusX, sy: state.shape.focusY, jump: true };
@@ -319,7 +322,7 @@ function hoverCursor(e) {
   const p = toAsset(e);
   const a = anchorPoint(state);
   if (state.mockup.showGuides && Math.hypot(p.x - a.x, p.y - a.y) < 20 / view.s * view.dpr) return 'grab';
-  if (inBox(p, textBox(animatedHeadline()))) return 'move';
+  if (inBox(p, textBox(state.headline))) return 'move';
   return 'default';
 }
 
@@ -527,21 +530,6 @@ const SCHEMA = [
     { path: 'fill.edge', label: 'Outline', type: 'range', min: 0, max: 20, step: 0.5, decimals: 1 },
     { path: 'fill.edgeColor', label: 'Outline colour', type: 'color', when: s => s.fill.edge > 0 },
   ] },
-  { title: 'Typography', tab: 'design', controls: [
-    ...TYPE_GROUP.controls,
-    { type: 'sublabel', text: 'Variable axes', when: () => !!fontInstances(FONT).length },
-    ...AXES_GROUP.controls,
-  ] },
-  { title: 'Logos', tab: 'design', collapsed: true, controls: [
-    { path: 'logo.enabled', label: 'Show', type: 'checkbox' },
-    { label: 'Image', type: 'file', label2: 'Choose PNG / SVG…', accept: 'image/*', onFile: (file) => { const r = new FileReader(); r.onload = () => patch({ logo: { src: r.result, enabled: true } }); r.readAsDataURL(file); } },
-    { path: 'logo.width', label: 'Width', type: 'range', min: 0.02, max: 1, step: 0.005, decimals: 3 },
-    { path: 'logo.opacity', label: 'Opacity', type: 'range', min: 0, max: 1, step: 0.01 },
-    { path: 'logo.align', label: 'Align', type: 'seg', options: [{ value: 'left', label: 'Left' }, { value: 'center', label: 'Centre' }, { value: 'right', label: 'Right' }] },
-    { path: 'logo.valign', label: 'V-align', type: 'seg', options: [{ value: 'top', label: 'Top' }, { value: 'middle', label: 'Middle' }, { value: 'bottom', label: 'Bottom' }] },
-    { path: 'logo.x', label: 'X', type: 'range', min: -0.2, max: 1.2, step: 0.005, decimals: 3 },
-    { path: 'logo.y', label: 'Y', type: 'range', min: -0.2, max: 1.2, step: 0.005, decimals: 3 },
-  ] },
   { tab: 'motion', controls: [
     { path: 'motion.enabled', label: 'Animate', type: 'checkbox' },
   ] },
@@ -550,19 +538,6 @@ const SCHEMA = [
     { path: 'motion.beams.sway', label: 'Sway', type: 'range', min: 0, max: 45, step: 0.5, decimals: 1, unit: '°' },
     { path: 'motion.beams.swaySpeed', label: 'Sway speed', type: 'range', min: 0.02, max: 2, step: 0.01 },
     { path: 'motion.beams.drift', label: 'Anchor drift', type: 'range', min: 0, max: 1, step: 0.01 },
-  ] },
-  { title: 'Typography', tab: 'motion', controls: [
-    { path: 'motion.text.speed', label: 'Speed', type: 'range', min: 0.02, max: 2, step: 0.01 },
-    { path: 'motion.text.wght', label: 'Weight swing', type: 'range', min: 0, max: 300, step: 5, decimals: 0, when: s => hasAxis(s.headline.font, 'wght') },
-    { path: 'motion.text.wdth', label: 'Width swing', type: 'range', min: 0, max: 60, step: 1, decimals: 0, when: s => hasAxis(s.headline.font, 'wdth') },
-    { path: 'motion.text.drift', label: 'Drift', type: 'range', min: 0, max: 0.3, step: 0.005, decimals: 3 },
-    { path: 'motion.text.sway', label: 'Sway', type: 'range', min: 0, max: 30, step: 0.5, decimals: 1, unit: '°' },
-  ] },
-  { title: 'Logos', tab: 'motion', controls: [
-    { path: 'motion.logo.speed', label: 'Speed', type: 'range', min: 0.02, max: 2, step: 0.01 },
-    { path: 'motion.logo.drift', label: 'Drift', type: 'range', min: 0, max: 0.3, step: 0.005, decimals: 3 },
-    { path: 'motion.logo.sway', label: 'Sway', type: 'range', min: 0, max: 30, step: 0.5, decimals: 1, unit: '°' },
-    { path: 'motion.logo.fade', label: 'Fade', type: 'range', min: 0, max: 1, step: 0.01 },
   ] },
   { title: 'Export', tab: 'motion', controls: [
     { path: 'motion.duration', label: 'Seconds', type: 'range', min: 1, max: 60, step: 0.5, decimals: 1 },
@@ -576,6 +551,21 @@ const SCHEMA = [
         toast(`Duration set to ${(n * one).toFixed(2)} s (${n} colour loop${n > 1 ? 's' : ''})`);
       } },
     ] },
+  ] },
+  { title: 'Type', tab: 'type', controls: [
+    ...TYPE_GROUP.controls,
+    { type: 'sublabel', text: 'Variable axes', when: () => !!fontInstances(FONT).length },
+    ...AXES_GROUP.controls,
+  ] },
+  { title: 'Logo', tab: 'logo', controls: [
+    { path: 'logo.enabled', label: 'Show', type: 'checkbox' },
+    { label: 'Image', type: 'file', label2: 'Choose PNG / SVG…', accept: 'image/*', onFile: (file) => { const r = new FileReader(); r.onload = () => patch({ logo: { src: r.result, enabled: true } }); r.readAsDataURL(file); } },
+    { path: 'logo.width', label: 'Width', type: 'range', min: 0.02, max: 1, step: 0.005, decimals: 3 },
+    { path: 'logo.opacity', label: 'Opacity', type: 'range', min: 0, max: 1, step: 0.01 },
+    { path: 'logo.align', label: 'Align', type: 'seg', options: [{ value: 'left', label: 'Left' }, { value: 'center', label: 'Centre' }, { value: 'right', label: 'Right' }] },
+    { path: 'logo.valign', label: 'V-align', type: 'seg', options: [{ value: 'top', label: 'Top' }, { value: 'middle', label: 'Middle' }, { value: 'bottom', label: 'Bottom' }] },
+    { path: 'logo.x', label: 'X', type: 'range', min: -0.2, max: 1.2, step: 0.005, decimals: 3 },
+    { path: 'logo.y', label: 'Y', type: 'range', min: -0.2, max: 1.2, step: 0.005, decimals: 3 },
   ] },
 ];
 let tab = 'design';

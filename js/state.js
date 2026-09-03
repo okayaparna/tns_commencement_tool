@@ -55,7 +55,7 @@ export const MOCKUPS = [
 export const BLENDS = ['normal', 'multiply', 'screen', 'lighten', 'darken'];
 
 export const DEFAULT_STATE = {
-  version: 3,
+  version: 4,
   size: { preset: 'wide', w: 1920, h: 1080 },
   background: BRAND.blue,
   palette: [BRAND.pink, BRAND.green, BRAND.red, BRAND.blue],
@@ -94,8 +94,6 @@ export const DEFAULT_STATE = {
     edge: 0,              // optional outline stroke width (px at 1000px short side)
     edgeColor: '#FFFFFF',
   },
-  // Everything oscillates around the value you set, at one shared frequency per section,
-  // so a section loops cleanly and pausing leaves the design where you left it.
   motion: {
     enabled: true,
     duration: 6,          // seconds for video export
@@ -105,19 +103,6 @@ export const DEFAULT_STATE = {
       sway: 0,            // degrees of angle oscillation
       swaySpeed: 0.2,
       drift: 0,           // focus point drift (fraction)
-    },
-    text: {
-      speed: 0.3,         // cycles per second for every text oscillation
-      wght: 0,            // weight axis swing, in axis units either side
-      wdth: 0,            // width axis swing
-      drift: 0,           // position wander (fraction of the canvas)
-      sway: 0,            // degrees of rotation
-    },
-    logo: {
-      speed: 0.3,
-      drift: 0,
-      sway: 0,
-      fade: 0,            // how far the opacity dips over a cycle
     },
   },
   headline: {

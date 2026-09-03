@@ -39,8 +39,8 @@ code { background: #eee; padding: 1px 4px; border-radius: 4px; }
 .panel.left { border-right: 1px solid var(--line); }
 .panel.right { border-left: 1px solid var(--line); padding-top: 0; gap: 0; }
 /* Design / Motion, the way Figma splits its right-hand panel. */
-.panel-tabs { display: flex; gap: 2px; position: sticky; top: 0; z-index: 2; background: var(--panel); border-bottom: 1px solid var(--line); margin: 0 -14px 12px; padding: 8px 14px; }
-.panel-tabs button { border: 0; background: transparent; border-radius: 7px; padding: 5px 12px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.panel-tabs { display: flex; gap: 1px; position: sticky; top: 0; z-index: 2; background: var(--panel); border-bottom: 1px solid var(--line); margin: 0 -14px 12px; padding: 8px 14px; }
+.panel-tabs button { border: 0; background: transparent; border-radius: 7px; padding: 5px 8px; font-size: 12px; font-weight: 600; color: var(--muted); white-space: nowrap; }
 .panel-tabs button:hover { background: var(--fill); color: var(--text); }
 .panel-tabs button.active { background: var(--fill); color: var(--text); }
 #controls { display: flex; flex-direction: column; gap: 18px; }

@@ -50,14 +50,8 @@ then visit http://localhost:8765 (ES modules do not run from `file://`).
   post shows two crops side by side, the 4:5 and the asset's own ratio, rising in when you pick
   it; it sits straight on the stage with no card behind it. Chrome icons are Material Symbols
   Rounded at weight 300, loaded from Google Fonts — offline, hand-drawn outlines stand in.
-- **Motion**: its own tab, sectioned like Design. *Beams* is the colour run, sway and anchor
-  drift. *Typography* swings the variable axes — weight and width breathe together, plus drift
-  and sway — every oscillation on one frequency so the section loops on its own period. *Logos*
-  drifts, sways and fades. *Export* holds duration, frame rate and "fit duration to a seamless
-  loop". Canvas cannot set font-variation-settings, so an animated axis costs one FontFace per
-  distinct value: the axes are quantised and share a phase, which keeps a full cycle to a few
-  dozen variants rather than one per frame. The first cycle may render at the base weight while
-  those load.
+- **Motion**: colour run, sway and anchor drift, plus *Export* — duration, frame rate and "fit
+  duration to a seamless loop".
 - **Rulers**: asset-pixel rules along the top and left, with the headline's extent shaded on
   both — under Canvas, next to Guides. They are hidden inside a tilted mockup, where a
   horizontal rule would not measure anything.
@@ -82,8 +76,8 @@ load at runtime. Anyone else cloning this repo needs to copy them in separately.
 
 Keyboard: `Space` play/pause, `R` shuffle seed, `G` guides, `⌘Z` undo.
 
-The right-hand panel splits the way Figma's does: **Design** (Beams, Typography, Logos) and
-**Motion**.
+The right-hand panel splits into four tabs: **Design** (the beams), **Motion**, **Typography**
+and **Logos**.
 
 ## Layout
 
