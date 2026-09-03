@@ -26,10 +26,12 @@ then visit http://localhost:8765 (ES modules do not run from `file://`).
   tape; with it the stroke reads as light. Pair it with a black background — light adds where
   beams cross, so overlaps stay clean instead of averaging toward grey. *Core focus* takes it from
   a broad wash to a hot filament.
-- **Mix**: how colours travel along a beam. *Arc* rotates round the hue wheel, so pink → green
-  passes through amber instead of the grey that a straight OKLab line runs through; *Direct* is
-  that straight line; *Hard* does not mix at all (crisp bands, closest to the 2025 posters).
-  **Vividness** holds mid-gradient chroma up toward the more saturated of the two colours.
+- **Mix**: how colours meet. *Hard* is the default and does not mix at all — only the palette's
+  own colours, in crisp bands. Four widely-spaced brand hues cannot be interpolated without
+  inventing colours that are not the brand's: pink into green passes through amber whichever
+  path you take, which is right for a palette of neighbours and wrong for this one. *Arc*
+  rotates round the hue wheel when you do want a smooth mix, *Direct* takes the straight OKLab
+  line, and **Vividness** holds mid-gradient chroma up toward the more saturated end.
 - **Direct manipulation**: drag the headline to move it and its corner grip to scale it, right on
   the canvas — and inside a mockup too, tilted booklet included, since the stage inverts whatever
   transform the mockup used. Positions snap to centre and thirds; hold Shift to disable. The

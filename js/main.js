@@ -520,9 +520,9 @@ const SCHEMA = [
     { path: 'fill.colorStep', label: 'Colour step', type: 'range', min: 0, max: 4, step: 1 },
     { path: 'fill.runSpread', label: 'Colours / beam', type: 'range', min: 1, max: 4, step: 1, when: s => s.fill.mode !== 'solid' },
     { path: 'fill.blendSpace', label: 'Mix', type: 'seg', when: s => s.fill.mode !== 'solid', options: [
+      { value: 'hard', label: 'Hard', title: 'No mixing: only the palette colours, in crisp bands' },
       { value: 'oklch', label: 'Arc', title: 'Travel round the hue wheel — mixes stay saturated' },
-      { value: 'oklab', label: 'Direct', title: 'Shortest path — can pass through grey' },
-      { value: 'hard', label: 'Hard', title: 'No mixing at all: crisp colour bands' } ] },
+      { value: 'oklab', label: 'Direct', title: 'Shortest path — can pass through grey' } ] },
     { path: 'fill.vividness', label: 'Vividness', type: 'range', min: 0, max: 1, step: 0.01, when: s => s.fill.mode !== 'solid' && s.fill.blendSpace !== 'hard' },
     { path: 'fill.phase', label: 'Gradient shift', type: 'range', min: 0, max: 1, step: 0.005, decimals: 3, when: s => s.fill.mode !== 'solid' },
     { path: 'fill.stripes', label: 'Stripes', type: 'range', min: 2, max: 8, step: 1, when: s => s.fill.mode === 'stripes' },
