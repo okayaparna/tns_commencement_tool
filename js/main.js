@@ -163,12 +163,28 @@ function textCorners(layer) {
   });
 }
 const HANDLE = 7;   // device px, so handles stay grabbable at any zoom
-// The grip goes on whichever corner reads as bottom-right on screen, whatever the type's
+// The logo's box in asset space, or null when it is off.
+function logoCorners() {
+  if (!state.logo.enabled) return null;
+  const b = logoBox(state.logo, state.size.w, state.size.h);
+  return [{ x: b.x, y: b.y }, { x: b.x + b.w, y: b.y }, { x: b.x + b.w, y: b.y + b.h }, { x: b.x, y: b.y + b.h }];
+}
+// The grip goes on whichever corner reads as bottom-right on screen, whatever the item's
 // own alignment or rotation, so it is always where the hand expects it.
-function scaleGrip(layer) {
-  const cs = textCorners(layer);
-  if (!cs) return null;
-  return cs.map(toStage).reduce((best, p) => (p.x + p.y > best.x + best.y ? p : best));
+function gripOf(corners) {
+  if (!corners) return null;
+  return corners.map(toStage).reduce((best, p) => (p.x + p.y > best.x + best.y ? p : best));
+}
+const scaleGrip = layer => gripOf(textCorners(layer));
+// Everything that can be scaled by dragging a corner, while the guides are showing.
+function grips() {
+  if (!state.mockup.showGuides) return [];
+  const out = [];
+  const t = gripOf(textCorners(state.headline));
+  if (t && state.headline.enabled) out.push({ kind: 'text', p: t });
+  const l = gripOf(logoCorners());
+  if (l) out.push({ kind: 'logo', p: l });
+  return out;
 }
 
 const RULER = 22;   // CSS px
@@ -262,19 +278,22 @@ function drawOverlay() {
     ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.fill(); ctx.strokeStyle = '#111'; ctx.lineWidth = 2 * dpr; ctx.stroke();
     ctx.beginPath(); ctx.arc(a.x, a.y, 3.2 * dpr, 0, Math.PI * 2); ctx.fillStyle = '#111'; ctx.fill();
   }
-  // The frame and its grip belong with the guides: turning them off gives a clean preview.
-  // Dragging the type itself stays live either way — the move cursor still finds it.
-  const cs = state.mockup.showGuides ? textCorners(state.headline) : null;
-  if (cs) {
-    const pts = cs.map(toStage);
-    ctx.beginPath();
-    pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
-    ctx.closePath();
-    ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = dpr; ctx.stroke();
-    const g = scaleGrip(state.headline);
+  // Frames and grips belong with the guides: turning them off gives a clean preview. Dragging
+  // the type or the mark stays live either way — the move cursor still finds them.
+  if (state.mockup.showGuides) {
+    const frames = [state.headline.enabled ? textCorners(state.headline) : null, logoCorners()].filter(Boolean);
+    for (const cs of frames) {
+      const pts = cs.map(toStage);
+      ctx.beginPath();
+      pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+      ctx.closePath();
+      ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = dpr; ctx.stroke();
+    }
     const r = HANDLE * dpr;
-    ctx.beginPath(); ctx.rect(g.x - r, g.y - r, r * 2, r * 2);
-    ctx.fillStyle = '#fff'; ctx.fill(); ctx.strokeStyle = '#111'; ctx.lineWidth = 1.5 * dpr; ctx.stroke();
+    for (const { p } of grips()) {
+      ctx.beginPath(); ctx.rect(p.x - r, p.y - r, r * 2, r * 2);
+      ctx.fillStyle = '#fff'; ctx.fill(); ctx.strokeStyle = '#111'; ctx.lineWidth = 1.5 * dpr; ctx.stroke();
+    }
   }
   ctx.restore();
 }
@@ -305,20 +324,21 @@ function toDevice(e) {
 const inBox = (p, b) => b && p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h;
 // Hit the grip in device space so it stays the same size however the mockup scales the asset.
 function onGrip(e) {
-  if (!state.mockup.showGuides) return false;   // nothing drawn, nothing to grab
-  const g = scaleGrip(state.headline);
-  if (!g) return false;
-  const d = toDevice(e);
-  return Math.abs(d.x - g.x) < (HANDLE + 3) * view.dpr && Math.abs(d.y - g.y) < (HANDLE + 3) * view.dpr;
+  const d = toDevice(e), r = (HANDLE + 3) * view.dpr;
+  return grips().find(g => Math.abs(d.x - g.p.x) < r && Math.abs(d.y - g.p.y) < r) || null;
 }
 
 canvas.addEventListener('pointerdown', e => {
   if (!view.m) return;
   const p = toAsset(e);
   const { w: W, h: H } = state.size;
-  if (state.headline.enabled && onGrip(e)) {
-    const L = layoutText(state.headline, W, H);
-    drag = { kind: 'scale', anchor: { x: L.anchorX, y: L.anchorY }, d0: Math.hypot(p.x - L.anchorX, p.y - L.anchorY), size: state.headline.size };
+  const grip = onGrip(e);
+  if (grip) {
+    const a = grip.kind === 'text'
+      ? (L => ({ x: L.anchorX, y: L.anchorY }))(layoutText(state.headline, W, H))
+      : { x: state.logo.x * W, y: state.logo.y * H };
+    drag = { kind: 'scale', on: grip.kind, anchor: a, d0: Math.hypot(p.x - a.x, p.y - a.y),
+             size: grip.kind === 'text' ? state.headline.size : state.logo.width };
   } else {
     const a = anchorPoint(state);
     if (state.mockup.showGuides && Math.hypot(p.x - a.x, p.y - a.y) < 20 / view.s * view.dpr)
@@ -338,7 +358,11 @@ canvas.addEventListener('pointermove', e => {
   const { w: W, h: H } = state.size;
   if (drag.kind === 'scale') {
     const d = Math.hypot(p.x - drag.anchor.x, p.y - drag.anchor.y);
-    if (drag.d0 > 1e-6) state.headline.size = clamp(+(drag.size * d / drag.d0).toFixed(4), 0.005, 4);
+    if (drag.d0 > 1e-6) {
+      const v = +(drag.size * d / drag.d0).toFixed(4);
+      if (drag.on === 'text') state.headline.size = clamp(v, 0.005, 4);
+      else state.logo.width = clamp(v, 0.01, 2);
+    }
   } else {
     let nx = drag.jump ? p.x / W : drag.sx + (p.x - drag.start.x) / W;
     let ny = drag.jump ? p.y / H : drag.sy + (p.y - drag.start.y) / H;
@@ -354,11 +378,12 @@ canvas.addEventListener('pointermove', e => {
 const endDrag = () => { drag = null; };
 canvas.addEventListener('pointerup', endDrag); canvas.addEventListener('pointercancel', endDrag);
 function hoverCursor(e) {
-  if (state.headline.enabled && onGrip(e)) return 'nwse-resize';
+  if (onGrip(e)) return 'nwse-resize';
   const p = toAsset(e);
   const a = anchorPoint(state);
   if (state.mockup.showGuides && Math.hypot(p.x - a.x, p.y - a.y) < 20 / view.s * view.dpr) return 'grab';
   if (inBox(p, textBox(state.headline))) return 'move';
+  if (state.logo.enabled && inBox(p, logoBox(state.logo, state.size.w, state.size.h))) return 'move';
   return 'default';
 }
 
@@ -592,10 +617,24 @@ const SCHEMA = [
     { path: 'logo.colour', label: 'Colour', type: 'seg', options: MARK_COLOURS },
     { path: 'logo.width', label: 'Width', type: 'range', min: 0.02, max: 1, step: 0.005, decimals: 3 },
     { path: 'logo.opacity', label: 'Opacity', type: 'range', min: 0, max: 1, step: 0.01 },
-    { path: 'logo.align', label: 'Align', type: 'seg', options: [{ value: 'left', label: 'Left' }, { value: 'center', label: 'Centre' }, { value: 'right', label: 'Right' }] },
-    { path: 'logo.valign', label: 'V-align', type: 'seg', options: [{ value: 'top', label: 'Top' }, { value: 'middle', label: 'Middle' }, { value: 'bottom', label: 'Bottom' }] },
-    { path: 'logo.x', label: 'X', type: 'range', min: -0.2, max: 1.2, step: 0.005, decimals: 3 },
-    { path: 'logo.y', label: 'Y', type: 'range', min: -0.2, max: 1.2, step: 0.005, decimals: 3 },
+    { type: 'sublabel', text: 'Alignment' },
+    { type: 'fields', items: [
+      { type: 'iconseg', path: 'logo.align', options: [
+        { value: 'left', icon: ALIGN_ICONS.left, title: 'Align left' },
+        { value: 'center', icon: ALIGN_ICONS.center, title: 'Align centre' },
+        { value: 'right', icon: ALIGN_ICONS.right, title: 'Align right' } ] },
+      { type: 'iconseg', path: 'logo.valign', options: [
+        { value: 'top', icon: VALIGN_ICONS.top, title: 'Align top' },
+        { value: 'middle', icon: VALIGN_ICONS.middle, title: 'Align middle' },
+        { value: 'bottom', icon: VALIGN_ICONS.bottom, title: 'Align bottom' } ] },
+    ] },
+    { type: 'sublabel', text: 'Position' },
+    { type: 'fields', items: [
+      { type: 'field', text: 'X', title: 'X (px)', min: -20000, max: 20000, step: 1, scrub: 3, decimals: 0,
+        get: s => s.logo.x * s.size.w, onSet: v => set('logo.x', v / state.size.w) },
+      { type: 'field', text: 'Y', title: 'Y (px)', min: -20000, max: 20000, step: 1, scrub: 3, decimals: 0,
+        get: s => s.logo.y * s.size.h, onSet: v => set('logo.y', v / state.size.h) },
+    ] },
   ] },
 ];
 let tab = 'design';

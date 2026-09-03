@@ -36,8 +36,8 @@ then visit http://localhost:8765 (ES modules do not run from `file://`).
   Mid-gradient chroma is always held up toward the more saturated of the two colours, so a mix
   never sags toward grey.
 - **Direct manipulation**: drag the headline to move it and its corner grip to scale it, right on
-  the canvas. The frame and grip come with *Guides & anchor*, so turning those off gives a clean
-  preview; dragging the type itself still works either way — and inside a mockup too, tilted booklet included, since the stage inverts whatever
+  the canvas — and the same for the mark. Frames and grips come with *Guides & anchor*, so
+  turning those off gives a clean preview; dragging either one still works — and inside a mockup too, tilted booklet included, since the stage inverts whatever
   transform the mockup used. Positions snap to centre and thirds; hold Shift to disable. The
   anchor handle and centre lines come with *Guides & anchor* under Canvas; Alt-drag jumps the
   anchor.
@@ -75,8 +75,9 @@ then visit http://localhost:8765 (ES modules do not run from `file://`).
   it is running.
 - **Logo**: The New School mark, on by default and switchable off, in white, black or red. It is
   the only logo — no uploads — and it is drawn as vector, so it stays sharp at poster size and
-  exports as paths in the SVG rather than an embedded bitmap. Drag it on the canvas like the
-  type.
+  exports as paths in the SVG rather than an embedded bitmap. Its panel carries the same
+  alignment and position block as the type, and on the canvas it gets the same frame and corner
+  grip — drag to move, drag the corner to size it.
 - **Rulers**: asset-pixel rules along the top and left, with the headline's extent shaded on
   both — under Canvas, next to Guides. They are hidden inside a tilted mockup, where a
   horizontal rule would not measure anything.
