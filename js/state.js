@@ -71,6 +71,8 @@ export const DEFAULT_STATE = {
     phase: 0,             // static gradient offset
     stripes: 3,           // stripes mode: sub-bands per beam
     seam: 0.06,           // gap between stripes (fraction of beam width)
+    core: 0,              // brightness of the lit centreline of each beam (0 = flat section)
+    coreFocus: 2.2,       // how tightly that brightness is gathered on the centreline
     blend: 'normal',
     opacity: 1,
     edge: 0,              // optional outline stroke width (px at 1000px short side)

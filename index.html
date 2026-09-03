@@ -3,25 +3,28 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TNS Commencement Studio</title>
+<title>The New School 2025 Commencement Studio</title>
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 <header class="topbar">
   <div class="brand">
     <span class="mark"></span>
-    <strong>Commencement Studio</strong>
-    <span class="sub">The New School · Class of 2025 identity generator</span>
+    <strong>The New School 2025 Commencement Studio</strong>
   </div>
   <div class="topbar-actions">
     <button id="btn-undo" class="ghost" title="Undo (⌘Z)">Undo</button>
     <button id="btn-random" class="ghost" title="New random seed (R)">Shuffle</button>
     <button id="btn-reset" class="ghost">Reset</button>
-    <label class="ghost file-btn">Load preset<input type="file" id="file-preset" accept="application/json" hidden></label>
-    <button id="btn-save-preset" class="ghost">Save preset</button>
-    <button id="btn-export-png" class="primary">Export PNG</button>
-    <button id="btn-export-svg" class="primary">Export SVG</button>
-    <button id="btn-export-video" class="primary">Export video</button>
+    <div class="split">
+      <button id="btn-export" class="primary">Export PNG</button>
+      <select id="export-type" title="File type">
+        <option value="png">PNG image</option>
+        <option value="svg">SVG vector</option>
+        <option value="video">Video</option>
+        <option value="preset">Preset JSON</option>
+      </select>
+    </div>
   </div>
 </header>
 
@@ -37,10 +40,8 @@
     </section>
     <section>
       <h2>Colours</h2>
-      <div class="row">
-        <label class="lbl">Background</label>
-        <input type="color" id="bg-color" class="swatch-input">
-      </div>
+      <div class="lbl">Background</div>
+      <div id="bg-swatches" class="swatches"></div>
       <div class="lbl" style="margin-top:8px">Beam palette <span class="hint">(order = beam order)</span></div>
       <div id="palette" class="palette"></div>
       <div class="row gap">

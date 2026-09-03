@@ -215,6 +215,41 @@ export function ribbonPolygon(pts, widths, f0 = -0.5, f1 = 0.5) {
   return L.concat(R.reverse());
 }
 
+// A beam split into quads along its length, each carrying the edge-to-edge axis to paint
+// a gradient ACROSS the stroke. A single along-the-length gradient leaves every beam flat
+// in section, which is what makes it read as coloured tape; a bright centre reads as light.
+export function ribbonQuads(pts, widths) {
+  const N = pts.length, out = [];
+  const normalAt = i => {
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(N - 1, i + 1)];
+    const tx = b.x - a.x, ty = b.y - a.y;
+    const len = Math.hypot(tx, ty) || 1;
+    return { x: -ty / len, y: tx / len };
+  };
+  for (let i = 0; i < N - 1; i++) {
+    const p0 = pts[i], p1 = pts[i + 1];
+    const n0 = normalAt(i), n1 = normalAt(i + 1);
+    const w0 = widths[i] / 2, w1 = widths[i + 1] / 2;
+    const a = { x: p0.x + n0.x * w0, y: p0.y + n0.y * w0 };
+    const z = { x: p0.x - n0.x * w0, y: p0.y - n0.y * w0 };
+    out.push({ a, z, poly: [a,
+      { x: p1.x + n1.x * w1, y: p1.y + n1.y * w1 },
+      { x: p1.x - n1.x * w1, y: p1.y - n1.y * w1 }, z] });
+  }
+  return out;
+}
+
+// White-alpha profile across a stroke: nothing at the edges, `core` on the centreline.
+// `focus` tightens it from a broad wash (0.6) to a hot filament (8).
+export function coreStops(core, focus, steps = 11) {
+  const out = [];
+  for (let i = 0; i < steps; i++) {
+    const t = i / (steps - 1);
+    out.push({ pos: t, alpha: +(core * Math.sin(Math.PI * t) ** focus).toFixed(4) });
+  }
+  return out;
+}
+
 // Width-fraction ranges for each stripe of a beam.
 export function stripeRanges(count, seam) {
   const out = [];

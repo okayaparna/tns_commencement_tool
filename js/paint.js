@@ -1,5 +1,5 @@
 // Canvas renderer. Draws the asset into a 2D context whose transform maps (0,0)-(W,H).
-import { buildBeams, ribbonPolygon, stripeRanges } from './geometry.js';
+import { buildBeams, ribbonPolygon, stripeRanges, ribbonQuads, coreStops } from './geometry.js';
 import { resolveFamily, fontAxes } from './fonts.js';
 
 export const FALLBACK_STACK = '"Helvetica Neue", Helvetica, Arial, sans-serif';
@@ -94,6 +94,30 @@ export function drawBeams(ctx, state, beams) {
       ctx.fill();
       if (f.edge > 0) { ctx.lineWidth = f.edge * m / 1000; ctx.strokeStyle = f.edgeColor; ctx.lineJoin = 'round'; ctx.stroke(); }
     });
+  }
+  ctx.restore();
+  drawCores(ctx, state, beams);
+}
+
+// The lit centreline, painted over the colour pass. Always source-over: a multiply blend
+// would swallow it, and it is light being added to the stroke, not another stroke.
+export function drawCores(ctx, state, beams) {
+  const f = state.fill;
+  if (!(f.core > 0)) return;
+  const stops = coreStops(f.core, f.coreFocus);
+  ctx.save();
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = f.opacity;
+  for (const b of beams) {
+    for (const q of ribbonQuads(b.pts, b.widths)) {
+      const g = ctx.createLinearGradient(q.a.x, q.a.y, q.z.x, q.z.y);
+      for (const s of stops) g.addColorStop(s.pos, `rgba(255,255,255,${s.alpha})`);
+      ctx.beginPath();
+      q.poly.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+      ctx.closePath();
+      ctx.fillStyle = g;
+      ctx.fill();
+    }
   }
   ctx.restore();
 }

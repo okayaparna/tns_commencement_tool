@@ -1,5 +1,5 @@
 // SVG exporter: same scene model as the canvas renderer, serialised as vector paths.
-import { buildBeams, ribbonPolygon, stripeRanges } from './geometry.js';
+import { buildBeams, ribbonPolygon, stripeRanges, ribbonQuads, coreStops } from './geometry.js';
 import { layoutText, getImage, logoBox, FALLBACK_STACK, layerVars, cssWeight } from './paint.js';
 import { fontFaceCSS, variationCSS } from './fonts.js';
 import { esc } from './util.js';
@@ -36,6 +36,17 @@ export function buildSVG(state, time = 0) {
       body.push(`<path d="${pathOf(ribbonPolygon(b.pts, b.widths, ranges[j][0], ranges[j][1]))}" fill="url(#${id})"${stroke}/>`);
     });
   });
+  // The lit centreline: one gradient per length-wise quad, running edge to edge.
+  const cores = [];
+  if (f.core > 0) {
+    const stops = coreStops(f.core, f.coreFocus)
+      .map(s => `<stop offset="${num(s.pos * 100)}%" stop-color="#FFFFFF" stop-opacity="${s.alpha}"/>`).join('');
+    beams.forEach((b, bi) => ribbonQuads(b.pts, b.widths).forEach((q, qi) => {
+      const id = `c${bi}_${qi}`;
+      defs.push(`<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${num(q.a.x)}" y1="${num(q.a.y)}" x2="${num(q.z.x)}" y2="${num(q.z.y)}">${stops}</linearGradient>`);
+      cores.push(`<path d="${pathOf(q.poly)}" fill="url(#${id})"/>`);
+    }));
+  }
   const blend = f.blend !== 'normal' ? ` style="mix-blend-mode:${f.blend}"` : '';
   const fonts = [state.headline.font];
   const css = fontFaceCSS(fonts);
@@ -50,6 +61,6 @@ export function buildSVG(state, time = 0) {
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
 <defs>${css ? `<style>${css}</style>` : ''}<clipPath id="frame"><rect width="${W}" height="${H}"/></clipPath>${defs.join('')}</defs>
 <rect width="${W}" height="${H}" fill="${state.background}"/>
-<g clip-path="url(#frame)">${behind}<g opacity="${f.opacity}"${blend}>${body.join('')}</g>${front}${logo}</g>
+<g clip-path="url(#frame)">${behind}<g opacity="${f.opacity}"${blend}>${body.join('')}</g>${cores.length ? `<g opacity="${f.opacity}">${cores.join('')}</g>` : ''}${front}${logo}</g>
 </svg>`;
 }

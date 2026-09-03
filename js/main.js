@@ -8,6 +8,12 @@ import { buildControls, getPath, setPath } from './ui.js';
 import { loadProjectFonts, onFontsChanged, fontNames, fontInstances, hasAxis, axisRange } from './fonts.js';
 
 const $ = s => document.querySelector(s);
+// The only legal backgrounds: the four brand colours plus black and white.
+const BACKGROUNDS = [
+  { hex: BRAND.blue, label: 'Blue' }, { hex: BRAND.pink, label: 'Pink' },
+  { hex: BRAND.green, label: 'Green' }, { hex: BRAND.red, label: 'Red' },
+  { hex: BRAND.white, label: 'White' }, { hex: BRAND.black, label: 'Black' },
+];
 const STORAGE = 'tns-studio-state-v1';
 
 // ---------- state ----------
@@ -195,7 +201,14 @@ function buildLeft() {
   $('#size-w').addEventListener('change', e => patch({ size: { preset: 'custom', w: clamp(+e.target.value || 16, 16, 8000) } }));
   $('#size-h').addEventListener('change', e => patch({ size: { preset: 'custom', h: clamp(+e.target.value || 16, 16, 8000) } }));
   $('#btn-swap-size').addEventListener('click', () => patch({ size: { preset: 'custom', w: state.size.h, h: state.size.w } }));
-  $('#bg-color').addEventListener('input', e => set('background', e.target.value));
+  const bgs = $('#bg-swatches');
+  for (const c of BACKGROUNDS) {
+    const b = document.createElement('button');
+    b.className = 'sw-btn'; b.dataset.color = c.hex; b.title = c.label;
+    b.style.background = c.hex;
+    b.addEventListener('click', () => set('background', c.hex));
+    bgs.appendChild(b);
+  }
   $('#btn-add-color').addEventListener('click', () => set('palette', [...state.palette, BRAND.white]));
   $('#btn-brand-colors').addEventListener('click', () => set('palette', [BRAND.pink, BRAND.green, BRAND.red, BRAND.blue]));
   $('#btn-shuffle-colors').addEventListener('click', () => set('palette', [...state.palette.slice(1), state.palette[0]]));
@@ -225,6 +238,7 @@ const anyOf = (...ids) => s => ids.includes(s.shape.template);
 // ---------- type controls ----------
 // Icons follow Figma's: a glyph that names the property rather than a generic arrow.
 const ICO = {
+  size:  '<svg viewBox="0 0 16 16"><path d="M1.4 12.8 5.2 3.4 9 12.8M2.7 10.1h5"/><path d="M12.9 3.8v8.4M11.5 5.2l1.4-1.4 1.4 1.4M11.5 10.8l1.4 1.4 1.4-1.4"/></svg>',
   lineh: '<svg viewBox="0 0 16 16"><path d="M3.4 11.6 8 3.2l4.6 8.4M5.2 9.1h5.6"/><path d="M2.4 14h11.2"/></svg>',
   track: '<svg viewBox="0 0 16 16"><path d="M4.6 11.4 8 4.4l3.4 7M5.9 9.4h4.2"/><path d="M1.9 2.8v10.4M14.1 2.8v10.4"/></svg>',
   rot:   '<svg viewBox="0 0 16 16"><path d="M3.4 3v10h10"/><path d="M3.4 8.4A4.6 4.6 0 0 1 8 13"/></svg>',
@@ -269,7 +283,7 @@ const TYPE_GROUP = { title: 'Type', controls: [
       get: s => styleKey(s.headline),
       onSet: v => { const [wdth, wght, slnt] = v.split(',').map(Number); patch({ headline: { wdth, wght, slnt } }); } },
     // Size, line height and tracking read in the units a designer thinks in, not fractions.
-    { type: 'field', title: 'Size (px)', min: 4, max: 6000, step: 1, scrub: 3,
+    { type: 'field', icon: ICO.size, title: 'Size', min: 4, max: 6000, step: 1, scrub: 3, unit: ' px',
       get: s => s.headline.size * s.size.h, onSet: v => set('headline.size', v / state.size.h) },
     { type: 'presets', presets: sizePresets, onSet: v => set('headline.size', v / state.size.h) },
   ] },
@@ -351,6 +365,8 @@ const SCHEMA = [
     { path: 'fill.phase', label: 'Gradient shift', type: 'range', min: 0, max: 1, step: 0.005, decimals: 3, when: s => s.fill.mode !== 'solid' },
     { path: 'fill.stripes', label: 'Stripes', type: 'range', min: 2, max: 8, step: 1, when: s => s.fill.mode === 'stripes' },
     { path: 'fill.seam', label: 'Seam gap', type: 'range', min: 0, max: 0.6, step: 0.01, when: s => s.fill.mode === 'stripes' },
+    { path: 'fill.core', label: 'Core light', type: 'range', min: 0, max: 1, step: 0.01 },
+    { path: 'fill.coreFocus', label: 'Core focus', type: 'range', min: 0.6, max: 8, step: 0.1, decimals: 1, when: s => s.fill.core > 0 },
     { path: 'fill.blend', label: 'Blend', type: 'select', options: BLENDS },
     { path: 'fill.opacity', label: 'Opacity', type: 'range', min: 0.05, max: 1, step: 0.01 },
     { path: 'fill.edge', label: 'Outline', type: 'range', min: 0, max: 20, step: 0.5, decimals: 1 },
@@ -389,7 +405,7 @@ function syncUI() {
   document.querySelectorAll('.look').forEach(b => b.classList.toggle('active', b.dataset.id === activeLook));
   $('#size-preset').value = state.size.preset;
   $('#size-w').value = state.size.w; $('#size-h').value = state.size.h;
-  $('#bg-color').value = state.background;
+  document.querySelectorAll('.sw-btn').forEach(b => b.classList.toggle('active', b.dataset.color.toLowerCase() === state.background.toLowerCase()));
   $('#mockup').value = state.mockup.id;
   $('#motion-toggle').checked = state.motion.enabled;
   $('#guides-toggle').checked = state.mockup.showGuides;
@@ -404,29 +420,32 @@ function toast(msg, ms = 2600) { const t = $('#toast'); t.textContent = msg; t.h
 $('#btn-undo').addEventListener('click', undo);
 $('#btn-random').addEventListener('click', () => set('shape.seed', Math.floor(Math.random() * 999) + 1));
 $('#btn-reset').addEventListener('click', () => { activeLook = null; replaceState(deepClone(DEFAULT_STATE)); });
-$('#btn-save-preset').addEventListener('click', () => exportJSON(state));
-$('#file-preset').addEventListener('change', e => {
-  const f = e.target.files[0]; if (!f) return;
-  const r = new FileReader(); r.onload = () => { try { replaceState(JSON.parse(r.result)); toast('Preset loaded'); } catch (_) { toast('Not a valid preset'); } }; r.readAsText(f);
-  e.target.value = '';
-});
-$('#btn-export-png').addEventListener('click', async () => {
-  const scale = parseFloat($('#png-scale').value);
-  toast('Rendering PNG…'); await new Promise(r => setTimeout(r, 30));
-  try { await exportPNG(state, time, scale); toast('PNG saved'); } catch (e) { toast('PNG failed: ' + e.message); }
-});
-$('#btn-export-svg').addEventListener('click', () => {
-  if (state.mockup.id !== 'none') toast('SVG exports the asset itself (mockups are PNG/video only)');
-  exportSVG(state, time); 
-});
-$('#btn-export-video').addEventListener('click', async () => {
-  const prog = $('#progress'), bar = prog.querySelector('i');
-  prog.hidden = false; bar.style.width = '0%';
-  try {
-    const { ext } = await exportVideo(state, { onProgress: p => (bar.style.width = `${Math.round(p * 100)}%`) });
-    toast(ext === 'mp4' ? 'MP4 saved' : 'Saved as WebM (this browser cannot encode MP4; Chrome 126+ or Safari can)', 5000);
-  } catch (e) { toast('Video failed: ' + e.message, 5000); }
-  prog.hidden = true;
+// One Export button. The attached chevron picks the file type and relabels the button.
+const EXPORTS = {
+  png: { label: 'Export PNG', run: async () => {
+    const scale = parseFloat($('#png-scale').value);
+    toast('Rendering PNG…'); await new Promise(r => setTimeout(r, 30));
+    await exportPNG(state, time, scale); toast('PNG saved');
+  } },
+  svg: { label: 'Export SVG', run: async () => {
+    if (state.mockup.id !== 'none') toast('SVG exports the asset itself (mockups are PNG/video only)');
+    exportSVG(state, time);
+  } },
+  video: { label: 'Export video', run: async () => {
+    const prog = $('#progress'), bar = prog.querySelector('i');
+    prog.hidden = false; bar.style.width = '0%';
+    try {
+      const { ext } = await exportVideo(state, { onProgress: p => (bar.style.width = `${Math.round(p * 100)}%`) });
+      toast(ext === 'mp4' ? 'MP4 saved' : 'Saved as WebM (this browser cannot encode MP4; Chrome 126+ or Safari can)', 5000);
+    } finally { prog.hidden = true; }
+  } },
+  preset: { label: 'Export preset', run: async () => { exportJSON(state); toast('Preset JSON saved'); } },
+};
+const exportType = () => $('#export-type').value;
+$('#export-type').addEventListener('change', () => { $('#btn-export').textContent = EXPORTS[exportType()].label; });
+$('#btn-export').addEventListener('click', async () => {
+  const kind = exportType();
+  try { await EXPORTS[kind].run(); } catch (e) { toast(`${kind.toUpperCase()} failed: ${e.message}`, 5000); }
 });
 document.addEventListener('keydown', e => {
   const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName);
@@ -439,7 +458,10 @@ document.addEventListener('keydown', e => {
 
 // ---------- boot ----------
 buildLeft();
-{ const m = videoMime(); $('#video-format').textContent = m ? (m.startsWith('video/mp4') ? '→ MP4' : '→ WebM (no MP4 in this browser)') : 'video unsupported'; }
+{
+  const m = videoMime();
+  $('#video-format').textContent = m ? (m.startsWith('video/mp4') ? '→ MP4' : '→ WebM (no MP4 in this browser)') : 'video unsupported';
+}
 onFontsChanged(() => { controls.refresh(); requestRender(); });
 (async () => { await loadProjectFonts(); document.fonts.ready.then(requestRender); })();
 syncUI(); resize();

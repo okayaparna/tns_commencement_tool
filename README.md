@@ -1,4 +1,4 @@
-# TNS Commencement Studio
+# The New School 2025 Commencement Studio
 
 A browser-based generator for The New School Class of 2025 commencement identity:
 gradient beams and streamers that cross and merge ("unity through intersectionality"),
@@ -15,8 +15,14 @@ then visit http://localhost:8765 (ES modules do not run from `file://`).
 ## What you can do
 
 - **Patterns**: rays from a focus point, weave, and streamers (curved ribbons merging).
-- **Colour**: background + ordered beam palette; solid, gradient or striped beams; blend modes
-  so intersections mix; outline strokes.
+- **Colour**: background is the four brand colours plus black and white; the beam palette is
+  free and ordered. Solid, gradient or striped beams; blend modes so intersections mix; outline
+  strokes.
+- **Core light**: a bright centreline running the length of each beam, brightest in the middle of
+  the stroke and fading to its edges. Without it a beam is flat in section and reads as coloured
+  tape; with it the stroke reads as light. Pair it with a black background — light adds where
+  beams cross, so overlaps stay clean instead of averaging toward grey. *Core focus* takes it from
+  a broad wash to a hot filament.
 - **Mix**: how colours travel along a beam. *Arc* rotates round the hue wheel, so pink → green
   passes through amber instead of the grey that a straight OKLab line runs through; *Direct* is
   that straight line; *Hard* does not mix at all (crisp bands, closest to the 2025 posters).
@@ -27,8 +33,9 @@ then visit http://localhost:8765 (ES modules do not run from `file://`).
   banner, badge, or custom pixel sizes.
 - **Mockups**: arena jumbotron, program booklet, poster on wall, phone story, social post, name badge.
 - **Motion**: colour run, sway, anchor drift; "fit duration to a seamless loop".
-- **Export**: PNG (0.5× / 1× / 2×), SVG (vector, font embedded), video
-  (MP4 in Chrome 126+ / Safari, WebM elsewhere), and JSON presets.
+- **Export**: one button with the file type on its chevron — PNG (0.5× / 1× / 2×), SVG (vector,
+  font embedded), video (MP4 in Chrome 126+ / Safari, WebM elsewhere), or the preset as JSON.
+  Core light adds a gradient per length-wise slice, so it roughly doubles SVG file size.
 - **Type**: one family — Neue Display Next Variable, loaded from `fonts/`. The Type panel copies
   Figma's Typography and Position sections: family, then a **Style** dropdown listing all 108 of
   the font's named instances (Compressed → Extended × Hairline → Black, roman and italic) beside
