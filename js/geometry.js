@@ -79,10 +79,11 @@ export function buildBeams(state, time = 0) {
   for (let i = 0; i < n; i++) J.push({ a: rnd() - 0.5, o: rnd() - 0.5, w: rnd() - 0.5, c: rnd(), s: rnd() });
 
   const anchor = { x: s.focusX * W, y: s.focusY * H };
-  const sway = mo.enabled ? Math.sin(time * mo.swaySpeed * TAU) * mo.sway : 0;
-  if (mo.enabled && mo.drift) {
-    anchor.x += Math.cos(time * 0.21 * TAU) * mo.drift * W * 0.5;
-    anchor.y += Math.sin(time * 0.17 * TAU) * mo.drift * H * 0.5;
+  const mb = mo.beams;
+  const sway = mo.enabled ? Math.sin(time * mb.swaySpeed * TAU) * mb.sway : 0;
+  if (mo.enabled && mb.drift) {
+    anchor.x += Math.cos(time * 0.21 * TAU) * mb.drift * W * 0.5;
+    anchor.y += Math.sin(time * 0.17 * TAU) * mb.drift * H * 0.5;
   }
   const ang = (s.angle + sway) * Math.PI / 180;
   const dir = { x: Math.cos(ang), y: Math.sin(ang) };
@@ -210,7 +211,7 @@ export function buildBeams(state, time = 0) {
 
   // Colours.
   const pal = state.palette.length ? state.palette : ['#FFFFFF'];
-  const phase = mod(f.phase + (mo.enabled ? time * mo.speed : 0), 1);
+  const phase = mod(f.phase + (mo.enabled ? time * mo.beams.speed : 0), 1);
   const stripes = f.mode === 'stripes' ? Math.max(1, Math.round(f.stripes)) : 1;
   for (const b of beams) {
     const base = Math.round(b.i * f.colorStep);

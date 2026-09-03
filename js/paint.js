@@ -1,7 +1,7 @@
 // Canvas renderer. Draws the asset into a 2D context whose transform maps (0,0)-(W,H).
 import { buildBeams, ribbonPolygon, stripeRanges, ribbonQuads, coreStops } from './geometry.js';
-import { clamp } from './util.js';
-import { resolveFamily, fontAxes } from './fonts.js';
+import { clamp, TAU } from './util.js';
+import { resolveFamily, fontAxes, axisRange } from './fonts.js';
 
 export const FALLBACK_STACK = '"Helvetica Neue", Helvetica, Arial, sans-serif';
 // Variable axes a text layer carries.
@@ -49,6 +49,49 @@ export function drawTextLayer(ctx, layer, W, H) {
   ctx.restore();
 }
 
+// --- motion applied to the type and the logo ----------------------------
+// One frequency per section with fixed phase offsets, so a section loops on its own period.
+// Canvas cannot set font-variation-settings, so every distinct axis value costs a FontFace:
+// animated axes are quantised to keep that set small rather than minting one per frame.
+const q = (v, step) => Math.round(v / step) * step;
+
+export function animateText(state, time) {
+  const layer = state.headline, mo = state.motion;
+  if (!mo.enabled) return layer;
+  const t = mo.text;
+  if (!(t.wght || t.wdth || t.drift || t.sway)) return layer;
+  const ph = time * t.speed * TAU;
+  // Swings are clamped to what the face actually offers, so the ends of the cycle do not
+  // sit on an axis value the font cannot render.
+  const lim = (tag, v, step, fb) => {
+    const r = axisRange(layer.font, tag) || fb;
+    return q(clamp(v, r.min, r.max), step);
+  };
+  return {
+    ...layer,
+    wght: lim('wght', layer.wght + Math.sin(ph) * t.wght, 10, { min: 100, max: 900 }),
+    wdth: lim('wdth', layer.wdth + Math.sin(ph) * t.wdth, 5, { min: 50, max: 200 }),
+    x: layer.x + Math.cos(ph) * t.drift,
+    y: layer.y + Math.sin(ph) * t.drift,
+    rotate: layer.rotate + Math.sin(ph + TAU / 6) * t.sway,
+  };
+}
+
+export function animateLogo(state, time) {
+  const logo = state.logo, mo = state.motion;
+  if (!mo.enabled) return logo;
+  const g = mo.logo;
+  if (!(g.drift || g.sway || g.fade)) return logo;
+  const ph = time * g.speed * TAU;
+  return {
+    ...logo,
+    x: logo.x + Math.cos(ph) * g.drift,
+    y: logo.y + Math.sin(ph) * g.drift,
+    rotate: Math.sin(ph + TAU / 6) * g.sway,
+    opacity: clamp(logo.opacity - ((1 - Math.cos(ph)) / 2) * g.fade, 0, 1),
+  };
+}
+
 const imgCache = new Map();
 export function getImage(src, onload) {
   if (!src) return null;
@@ -71,7 +114,14 @@ export function drawLogo(ctx, logo, W, H, onload) {
   const img = getImage(logo.src, onload);
   if (!img) return;
   const b = logoBox(logo, W, H, img);
-  ctx.save(); ctx.globalAlpha = logo.opacity; ctx.drawImage(img, b.x, b.y, b.w, b.h); ctx.restore();
+  ctx.save();
+  ctx.globalAlpha = logo.opacity;
+  if (logo.rotate) {
+    const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+    ctx.translate(cx, cy); ctx.rotate(logo.rotate * Math.PI / 180); ctx.translate(-cx, -cy);
+  }
+  ctx.drawImage(img, b.x, b.y, b.w, b.h);
+  ctx.restore();
 }
 
 export function drawBeams(ctx, state, beams) {
@@ -139,9 +189,9 @@ export function renderAsset(ctx, state, time = 0, hooks = {}) {
   ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.clip();
   ctx.fillStyle = state.background; ctx.fillRect(0, 0, W, H);
   drawBeams(ctx, state, beams.slice(0, cut));
-  drawTextLayer(ctx, state.headline, W, H);
+  drawTextLayer(ctx, animateText(state, time), W, H);
   drawBeams(ctx, state, beams.slice(cut));
-  drawLogo(ctx, state.logo, W, H, hooks.onImageLoad);
+  drawLogo(ctx, animateLogo(state, time), W, H, hooks.onImageLoad);
   ctx.restore();
   return beams;
 }

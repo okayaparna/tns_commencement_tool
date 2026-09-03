@@ -40,8 +40,22 @@ then visit http://localhost:8765 (ES modules do not run from `file://`).
   at 0 are two straight runs through the crossing point.
 - **Sizes**: presets for screen, social, story, poster, program cover/spread, arena ribbon,
   banner, badge, or custom pixel sizes.
-- **Mockups**: arena jumbotron, program booklet, poster on wall, phone story, social post, name badge.
-- **Motion**: its own tab — colour run, sway, anchor drift; "fit duration to a seamless loop".
+- **Mockups**: arena jumbotron, program booklet, poster on wall, phone story, social post, name
+  badge. The story carries real Instagram chrome — progress segments, poster row, reply bar and
+  the scrims behind them — so you can see the band your type has to stay clear of. The social
+  post crops to Instagram's allowed range rather than forcing a square, so a story-shaped asset
+  loses a sliver instead of half its height.
+- **Motion**: its own tab, sectioned like Design. *Beams* is the colour run, sway and anchor
+  drift. *Typography* swings the variable axes — weight and width breathe together, plus drift
+  and sway — every oscillation on one frequency so the section loops on its own period. *Logos*
+  drifts, sways and fades. *Export* holds duration, frame rate and "fit duration to a seamless
+  loop". Canvas cannot set font-variation-settings, so an animated axis costs one FontFace per
+  distinct value: the axes are quantised and share a phase, which keeps a full cycle to a few
+  dozen variants rather than one per frame. The first cycle may render at the base weight while
+  those load.
+- **Rulers**: asset-pixel rules along the top and left, with the headline's extent shaded on
+  both — under Canvas, next to Guides. They are hidden inside a tilted mockup, where a
+  horizontal rule would not measure anything.
 - **Export**: one button with the file type on its chevron — PNG (0.5× / 1× / 2×), SVG (vector,
   font embedded), video (MP4 in Chrome 126+ / Safari, WebM elsewhere), or the preset as JSON.
   Core light adds a gradient per length-wise slice, so it roughly doubles SVG file size.

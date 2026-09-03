@@ -51,6 +51,27 @@ function arcText(ctx, text, cx, cy, rx, ry, startDeg, endDeg) {
   }
 }
 
+const UI = '"Helvetica Neue", Helvetica, Arial, sans-serif';
+
+// Outline glyphs for the social chrome, sized by a half-height `k`.
+function heart(ctx, x, y, k) {
+  ctx.beginPath();
+  ctx.moveTo(x, y + k * 0.85);
+  ctx.bezierCurveTo(x - k * 1.7, y - k * 0.25, x - k * 0.75, y - k * 1.25, x, y - k * 0.35);
+  ctx.bezierCurveTo(x + k * 0.75, y - k * 1.25, x + k * 1.7, y - k * 0.25, x, y + k * 0.85);
+  ctx.stroke();
+}
+function bubble(ctx, x, y, k) {
+  ctx.beginPath(); ctx.arc(x, y, k, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x - k * 0.55, y + k * 0.8); ctx.lineTo(x - k * 0.75, y + k * 1.4); ctx.lineTo(x - k * 0.1, y + k); ctx.stroke();
+}
+function plane(ctx, x, y, k) {
+  ctx.beginPath();
+  ctx.moveTo(x - k, y - k * 0.35); ctx.lineTo(x + k, y - k); ctx.lineTo(x + k * 0.15, y + k); ctx.lineTo(x - k * 0.1, y + k * 0.1); ctx.closePath();
+  ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x - k, y - k * 0.35); ctx.lineTo(x - k * 0.1, y + k * 0.1); ctx.lineTo(x + k, y - k); ctx.stroke();
+}
+
 const R = {};
 
 R.arena = (ctx, W, H, img, state) => {
@@ -145,30 +166,98 @@ R.phone = (ctx, W, H, img, state) => {
   const pw = W * 0.78, ph = pw * 2.1, px = W / 2 - pw / 2, py = H / 2 - ph / 2, r = pw * 0.14;
   shadow(ctx, px, py, pw, ph, r, W * 0.06, 0.6, 0.3);
   ctx.fillStyle = '#111'; rrect(ctx, px, py, pw, ph, r); ctx.fill();
-  const b = pw * 0.035;
-  cover(ctx, img, px + b, py + b, pw - 2 * b, ph - 2 * b, r - b);
-  // status bar + island + home indicator
+  const b = pw * 0.035;                       // bezel
+  const sx = px + b, sy = py + b, sw = pw - 2 * b, sh = ph - 2 * b;
+  cover(ctx, img, sx, sy, sw, sh, r - b);
+
+  // A story is not a bare full-bleed image: chrome eats the top and bottom of the frame, so
+  // the mockup shows it — this is the band your type has to stay clear of.
+  ctx.save(); rrect(ctx, sx, sy, sw, sh, r - b); ctx.clip();
+  const scrim = (y0, y1, a) => {
+    const gg = ctx.createLinearGradient(0, y0, 0, y1);
+    gg.addColorStop(0, `rgba(0,0,0,${a})`); gg.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = gg; ctx.fillRect(sx, Math.min(y0, y1), sw, Math.abs(y1 - y0));
+  };
+  scrim(sy, sy + sh * 0.16, 0.45);
+  scrim(sy + sh, sy + sh * 0.82, 0.5);
+
+  // progress segments
+  const pad = sw * 0.035, segs = 4, gap = sw * 0.012;
+  const segW = (sw - pad * 2 - gap * (segs - 1)) / segs;
+  const topY = sy + sh * 0.058;   // clear of the dynamic island, as on a real handset
+  for (let i = 0; i < segs; i++) {
+    const x = sx + pad + i * (segW + gap);
+    ctx.fillStyle = 'rgba(255,255,255,0.35)'; rrect(ctx, x, topY, segW, sw * 0.008, sw * 0.004); ctx.fill();
+    if (i < 1) { ctx.fillStyle = '#fff'; rrect(ctx, x, topY, segW, sw * 0.008, sw * 0.004); ctx.fill(); }
+    if (i === 1) { ctx.fillStyle = '#fff'; rrect(ctx, x, topY, segW * 0.45, sw * 0.008, sw * 0.004); ctx.fill(); }
+  }
+  // poster row: avatar, handle, time, close
+  const ay = topY + sw * 0.065;
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = sw * 0.007;
+  ctx.beginPath(); ctx.arc(sx + pad + sw * 0.045, ay, sw * 0.045, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = '#E52A1F'; ctx.beginPath(); ctx.arc(sx + pad + sw * 0.045, ay, sw * 0.036, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = `700 ${sw * 0.028}px ${UI}`; ctx.fillText('TNS', sx + pad + sw * 0.045, ay);
+  ctx.textAlign = 'left';
+  ctx.font = `600 ${sw * 0.036}px ${UI}`; ctx.fillText('thenewschool', sx + pad + sw * 0.105, ay);
+  ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.font = `400 ${sw * 0.032}px ${UI}`;
+  ctx.fillText('2h', sx + pad + sw * 0.105 + ctx.measureText('thenewschool').width * 1.35, ay);
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = sw * 0.008; ctx.lineCap = 'round';
+  const cxx = sx + sw - pad - sw * 0.02, k = sw * 0.022;
+  ctx.beginPath(); ctx.moveTo(cxx - k, ay - k); ctx.lineTo(cxx + k, ay + k); ctx.moveTo(cxx + k, ay - k); ctx.lineTo(cxx - k, ay + k); ctx.stroke();
+
+  // reply bar: input pill, heart, share
+  const by = sy + sh - sw * 0.115;
+  ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = sw * 0.006;
+  const pillW = sw - pad * 2 - sw * 0.22;
+  rrect(ctx, sx + pad, by - sw * 0.048, pillW, sw * 0.096, sw * 0.048); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.font = `400 ${sw * 0.034}px ${UI}`; ctx.textAlign = 'left';
+  ctx.fillText('Send message', sx + pad + sw * 0.05, by);
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = sw * 0.007;
+  heart(ctx, sx + pad + pillW + sw * 0.055, by, sw * 0.033);
+  plane(ctx, sx + pad + pillW + sw * 0.155, by, sw * 0.033);
+  ctx.restore();
+
+  // hardware: island and home indicator
   ctx.fillStyle = '#111'; rrect(ctx, W / 2 - pw * 0.17, py + b * 1.6, pw * 0.34, pw * 0.075, pw * 0.04); ctx.fill();
   ctx.fillStyle = 'rgba(255,255,255,0.9)'; rrect(ctx, W / 2 - pw * 0.18, py + ph - b * 2.2, pw * 0.36, pw * 0.014, pw * 0.01); ctx.fill();
-  // story progress bar
-  ctx.fillStyle = 'rgba(255,255,255,0.5)'; rrect(ctx, px + b * 2, py + b * 3.6, pw - b * 4, pw * 0.008, 4); ctx.fill();
-  ctx.fillStyle = '#fff'; rrect(ctx, px + b * 2, py + b * 3.6, (pw - b * 4) * 0.4, pw * 0.008, 4); ctx.fill();
 };
 
 R.social = (ctx, W, H, img, state) => {
   ctx.fillStyle = '#f3f3f4'; ctx.fillRect(0, 0, W, H);
-  const cw = W * 0.86, cx = W * 0.07, cy = H * 0.06, head = cw * 0.13, ch = head + cw + cw * 0.22;
-  shadow(ctx, cx, cy, cw, ch, W * 0.02, W * 0.03, 0.15, 0.4);
-  ctx.fillStyle = '#fff'; rrect(ctx, cx, cy, cw, ch, W * 0.02); ctx.fill();
-  ctx.fillStyle = '#E52A1F'; ctx.beginPath(); ctx.arc(cx + head * 0.5, cy + head * 0.5, head * 0.28, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#fff'; ctx.font = `700 ${head * 0.22}px "Helvetica Neue", Helvetica, Arial, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('TNS', cx + head * 0.5, cy + head * 0.5);
-  ctx.fillStyle = '#111'; ctx.font = `600 ${head * 0.2}px "Helvetica Neue", Helvetica, Arial, sans-serif`; ctx.textAlign = 'left'; ctx.fillText('thenewschool', cx + head * 0.95, cy + head * 0.42);
-  ctx.fillStyle = '#888'; ctx.font = `400 ${head * 0.16}px "Helvetica Neue", Helvetica, Arial, sans-serif`; ctx.fillText('Barclays Center', cx + head * 0.95, cy + head * 0.66);
-  cover(ctx, img, cx, cy + head, cw, cw, 0);
-  const fy = cy + head + cw + cw * 0.06;
-  ctx.strokeStyle = '#222'; ctx.lineWidth = cw * 0.008; ctx.lineJoin = 'round';
-  for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(cx + cw * (0.06 + i * 0.09), fy, cw * 0.028, 0, Math.PI * 2); ctx.stroke(); }
-  placeholderLines(ctx, cx + cw * 0.03, fy + cw * 0.06, cw * 0.9, 2, cw * 0.05, '#dcdcdc');
+  // Instagram crops a post into its allowed range rather than forcing a square, so a story-
+  // shaped asset loses a sliver instead of half its height.
+  const ar = Math.min(1.91, Math.max(0.8, img.width / img.height));
+  const head = 0.115, foot = 0.30;                 // both as a share of the card width
+  const margin = W * 0.05;
+  // Size the card from whichever of width or height runs out first, so it always fits.
+  const cw = Math.min(W - margin * 2, (H - margin * 2) / (head + 1 / ar + foot));
+  const ih = cw / ar, ch = cw * head + ih + cw * foot;
+  const cx = (W - cw) / 2, cy = (H - ch) / 2;
+  const r = cw * 0.022, hh = cw * head;
+
+  shadow(ctx, cx, cy, cw, ch, r, W * 0.03, 0.15, 0.4);
+  ctx.fillStyle = '#fff'; rrect(ctx, cx, cy, cw, ch, r); ctx.fill();
+  // header
+  ctx.fillStyle = '#E52A1F'; ctx.beginPath(); ctx.arc(cx + hh * 0.62, cy + hh * 0.5, hh * 0.3, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.font = `700 ${hh * 0.24}px ${UI}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('TNS', cx + hh * 0.62, cy + hh * 0.5);
+  ctx.fillStyle = '#111'; ctx.font = `600 ${hh * 0.22}px ${UI}`; ctx.textAlign = 'left';
+  ctx.fillText('thenewschool', cx + hh * 1.08, cy + hh * 0.4);
+  ctx.fillStyle = '#8e8e93'; ctx.font = `400 ${hh * 0.18}px ${UI}`;
+  ctx.fillText('Barclays Center', cx + hh * 1.08, cy + hh * 0.66);
+  ctx.fillStyle = '#111';
+  for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(cx + cw - hh * 0.5, cy + hh * (0.34 + i * 0.16), hh * 0.028, 0, Math.PI * 2); ctx.fill(); }
+  // the asset
+  cover(ctx, img, cx, cy + hh, cw, ih, 0);
+  // footer: action row, likes, caption
+  const fy = cy + hh + ih + cw * 0.075;
+  ctx.strokeStyle = '#111'; ctx.lineWidth = cw * 0.007; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  heart(ctx, cx + cw * 0.06, fy, cw * 0.03);
+  bubble(ctx, cx + cw * 0.16, fy, cw * 0.03);
+  plane(ctx, cx + cw * 0.26, fy, cw * 0.03);
+  ctx.beginPath(); ctx.rect(cx + cw - cw * 0.085, fy - cw * 0.028, cw * 0.05, cw * 0.058); ctx.stroke();
+  placeholderLines(ctx, cx + cw * 0.06, fy + cw * 0.06, cw * 0.88, 2, cw * 0.055, '#dcdcdc');
 };
 
 R.badge = (ctx, W, H, img, state) => {

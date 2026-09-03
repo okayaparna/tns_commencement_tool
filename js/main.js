@@ -1,6 +1,6 @@
 import { DEFAULT_STATE, SIZE_PRESETS, TEMPLATES, MOCKUPS, LOOKS, BLENDS, BRAND, FONT } from './state.js';
 import { deepClone, deepMerge, clamp } from './util.js';
-import { renderAsset, layoutText, fontString, renderAssetToCanvas, getImage, logoBox, textSplit } from './paint.js';
+import { renderAsset, layoutText, fontString, renderAssetToCanvas, getImage, logoBox, textSplit, animateText, animateLogo } from './paint.js';
 import { anchorPoint } from './geometry.js';
 import { drawMockup, lastPlacement } from './mockups.js';
 import { exportPNG, exportSVG, exportVideo, exportJSON, videoMime } from './export.js';
@@ -81,7 +81,7 @@ function draw() {
     if (place) {
       setView(new DOMMatrix().translate(x, y).multiply(place.matrix)
         .translate(place.dx, place.dy).scale(place.dw / state.size.w, place.dh / state.size.h));
-      drawOverlay();
+      drawRulers(); drawOverlay();
     } else view.m = null;
     stageInfo.textContent = `${mk.label} · asset ${state.size.w} × ${state.size.h}`;
     return;
@@ -93,11 +93,13 @@ function draw() {
   ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.25)'; ctx.shadowBlur = 30 * dpr; ctx.shadowOffsetY = 10 * dpr; ctx.fillStyle = '#000'; ctx.fillRect(ox, oy, W * k, H * k); ctx.restore();
   ctx.setTransform(k, 0, 0, k, ox, oy);
   renderAsset(ctx, state, time, { onImageLoad: requestRender });
+  drawRulers();
   drawOverlay();
   stageInfo.textContent = `${state.size.w} × ${state.size.h} px · ${Math.round(k / dpr * 100)}%`;
 }
 
 // Asset space -> canvas device px.
+const animatedHeadline = () => animateText(state, time);
 const toStage = p => { const q = view.m.transformPoint(new DOMPoint(p.x, p.y)); return { x: q.x, y: q.y }; };
 
 // The text's four corners in asset space, rotated with it so the box tracks the type.
@@ -122,6 +124,78 @@ function scaleGrip(layer) {
   return cs.map(toStage).reduce((best, p) => (p.x + p.y > best.x + best.y ? p : best));
 }
 
+const RULER = 22;   // CSS px
+// Tick spacing from the 1 / 2 / 5 ladder, whichever first gives labels room to breathe.
+function niceStep(pxPerUnit, minPx) {
+  const raw = minPx / pxPerUnit;
+  const pow = 10 ** Math.floor(Math.log10(raw));
+  for (const mult of [1, 2, 5]) if (pow * mult >= raw) return pow * mult;
+  return pow * 10;
+}
+
+// Asset-pixel rulers down the top and left edges. Only drawn when the asset maps onto the
+// stage square-on — inside a tilted mockup a horizontal ruler would not measure anything.
+function drawRulers() {
+  if (!state.mockup.showRulers || !view.m) return;
+  const m = view.m;
+  if (Math.abs(m.b) > 1e-6 || Math.abs(m.c) > 1e-6) return;
+  const dpr = view.dpr, R = RULER * dpr, cw = canvas.width, ch = canvas.height;
+  const sx = m.a, sy = m.d, ox = m.e, oy = m.f;
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = '#fbfbfc';
+  ctx.fillRect(0, 0, cw, R); ctx.fillRect(0, 0, R, ch);
+
+  // The selected text's extent, shaded on both rules the way Figma shows a selection.
+  const b = textBox(animatedHeadline());
+  if (b) {
+    ctx.fillStyle = 'rgba(17,17,20,.10)';
+    ctx.fillRect(ox + b.x * sx, 0, b.w * sx, R);
+    ctx.fillRect(0, oy + b.y * sy, R, b.h * sy);
+  }
+
+  ctx.strokeStyle = '#e4e4e7'; ctx.lineWidth = dpr;
+  ctx.beginPath();
+  ctx.moveTo(0, R - dpr / 2); ctx.lineTo(cw, R - dpr / 2);
+  ctx.moveTo(R - dpr / 2, 0); ctx.lineTo(R - dpr / 2, ch);
+  ctx.stroke();
+
+  ctx.font = `${10 * dpr}px ${getComputedStyle(document.body).fontFamily}`;
+  ctx.fillStyle = '#8a8a92';
+  ctx.strokeStyle = '#c9c9d0';
+  const tick = (from, to, step, place) => {
+    const start = Math.ceil(from / step) * step;
+    for (let u = start; u <= to; u += step) place(u);
+  };
+  // top: asset x
+  const stepX = niceStep(sx, 62 * dpr);
+  ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+  ctx.beginPath();
+  tick(-ox / sx, (cw - ox) / sx, stepX, u => {
+    const x = Math.round(ox + u * sx) + 0.5;
+    ctx.moveTo(x, R - 5 * dpr); ctx.lineTo(x, R);
+    ctx.fillText(String(Math.round(u)), x + 3 * dpr, R / 2);
+  });
+  ctx.stroke();
+  // left: asset y, numbers turned to read up the rule
+  const stepY = niceStep(sy, 62 * dpr);
+  ctx.beginPath();
+  const labels = [];
+  tick(-oy / sy, (ch - oy) / sy, stepY, u => {
+    const y = Math.round(oy + u * sy) + 0.5;
+    ctx.moveTo(R - 5 * dpr, y); ctx.lineTo(R, y);
+    labels.push([Math.round(u), y]);
+  });
+  ctx.stroke();
+  for (const [u, y] of labels) {
+    ctx.save(); ctx.translate(R / 2, y + 3 * dpr); ctx.rotate(-Math.PI / 2);
+    ctx.fillText(String(u), 0, 0); ctx.restore();
+  }
+  ctx.fillStyle = '#fbfbfc'; ctx.fillRect(0, 0, R, R);
+  ctx.strokeStyle = '#e4e4e7'; ctx.strokeRect(0.5 * dpr, 0.5 * dpr, R - dpr, R - dpr);
+  ctx.restore();
+}
+
 function drawOverlay() {
   if (!view.m) return;
   const { w: W, h: H } = state.size;
@@ -142,14 +216,14 @@ function drawOverlay() {
     ctx.beginPath(); ctx.arc(a.x, a.y, 3.2 * dpr, 0, Math.PI * 2); ctx.fillStyle = '#111'; ctx.fill();
   }
   // The text frame and its corner grip are always live — that is how you move and scale.
-  const cs = textCorners(state.headline);
+  const cs = textCorners(animatedHeadline());
   if (cs) {
     const pts = cs.map(toStage);
     ctx.beginPath();
     pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
     ctx.closePath();
     ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = dpr; ctx.stroke();
-    const g = scaleGrip(state.headline);
+    const g = scaleGrip(animatedHeadline());
     const r = HANDLE * dpr;
     ctx.beginPath(); ctx.rect(g.x - r, g.y - r, r * 2, r * 2);
     ctx.fillStyle = '#fff'; ctx.fill(); ctx.strokeStyle = '#111'; ctx.lineWidth = 1.5 * dpr; ctx.stroke();
@@ -183,7 +257,7 @@ function toDevice(e) {
 const inBox = (p, b) => b && p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h;
 // Hit the grip in device space so it stays the same size however the mockup scales the asset.
 function onGrip(e) {
-  const g = scaleGrip(state.headline);
+  const g = scaleGrip(animatedHeadline());
   if (!g) return false;
   const d = toDevice(e);
   return Math.abs(d.x - g.x) < (HANDLE + 3) * view.dpr && Math.abs(d.y - g.y) < (HANDLE + 3) * view.dpr;
@@ -200,11 +274,11 @@ canvas.addEventListener('pointerdown', e => {
     const a = anchorPoint(state);
     if (state.mockup.showGuides && Math.hypot(p.x - a.x, p.y - a.y) < 20 / view.s * view.dpr)
       drag = { kind: 'anchor', start: p, sx: state.shape.focusX, sy: state.shape.focusY };
-    else if (inBox(p, textBox(state.headline)))
+    else if (inBox(p, textBox(animatedHeadline())))
       drag = { kind: 'text', start: p, sx: state.headline.x, sy: state.headline.y };
     else if (state.logo.enabled && state.logo.src) {
       const img = getImage(state.logo.src);
-      if (img && inBox(p, logoBox(state.logo, W, H, img))) drag = { kind: 'logo', start: p, sx: state.logo.x, sy: state.logo.y };
+      if (img && inBox(p, logoBox(animateLogo(state, time), W, H, img))) drag = { kind: 'logo', start: p, sx: state.logo.x, sy: state.logo.y };
     }
   }
   if (!drag && e.altKey) drag = { kind: 'anchor', start: p, sx: state.shape.focusX, sy: state.shape.focusY, jump: true };
@@ -237,7 +311,7 @@ function hoverCursor(e) {
   const p = toAsset(e);
   const a = anchorPoint(state);
   if (state.mockup.showGuides && Math.hypot(p.x - a.x, p.y - a.y) < 20 / view.s * view.dpr) return 'grab';
-  if (inBox(p, textBox(state.headline))) return 'move';
+  if (inBox(p, textBox(animatedHeadline()))) return 'move';
   return 'default';
 }
 
@@ -286,6 +360,7 @@ function buildLeft() {
   mk.addEventListener('change', () => set('mockup.id', mk.value));
   $('#motion-toggle').addEventListener('change', e => { set('motion.enabled', e.target.checked); lastT = null; });
   $('#guides-toggle').addEventListener('change', e => set('mockup.showGuides', e.target.checked));
+  $('#rulers-toggle').addEventListener('change', e => set('mockup.showRulers', e.target.checked));
 
   $('#video-duration').addEventListener('change', e => set('motion.duration', clamp(+e.target.value || 6, 1, 60)));
 }
@@ -461,14 +536,37 @@ const SCHEMA = [
   ] },
   { tab: 'motion', controls: [
     { path: 'motion.enabled', label: 'Animate', type: 'checkbox' },
-    { path: 'motion.speed', label: 'Colour run', type: 'range', min: -2, max: 2, step: 0.01 },
-    { path: 'motion.sway', label: 'Sway °', type: 'range', min: 0, max: 45, step: 0.5, decimals: 1 },
-    { path: 'motion.swaySpeed', label: 'Sway speed', type: 'range', min: 0.02, max: 2, step: 0.01 },
-    { path: 'motion.drift', label: 'Anchor drift', type: 'range', min: 0, max: 1, step: 0.01 },
-    { path: 'motion.duration', label: 'Video secs', type: 'range', min: 1, max: 60, step: 0.5, decimals: 1 },
-    { path: 'motion.fps', label: 'Video fps', type: 'select', options: ['24', '30', '60'], number: true },
+  ] },
+  { title: 'Beams', tab: 'motion', controls: [
+    { path: 'motion.beams.speed', label: 'Colour run', type: 'range', min: -2, max: 2, step: 0.01 },
+    { path: 'motion.beams.sway', label: 'Sway', type: 'range', min: 0, max: 45, step: 0.5, decimals: 1, unit: '°' },
+    { path: 'motion.beams.swaySpeed', label: 'Sway speed', type: 'range', min: 0.02, max: 2, step: 0.01 },
+    { path: 'motion.beams.drift', label: 'Anchor drift', type: 'range', min: 0, max: 1, step: 0.01 },
+  ] },
+  { title: 'Typography', tab: 'motion', controls: [
+    { path: 'motion.text.speed', label: 'Speed', type: 'range', min: 0.02, max: 2, step: 0.01 },
+    { path: 'motion.text.wght', label: 'Weight swing', type: 'range', min: 0, max: 300, step: 5, decimals: 0, when: s => hasAxis(s.headline.font, 'wght') },
+    { path: 'motion.text.wdth', label: 'Width swing', type: 'range', min: 0, max: 60, step: 1, decimals: 0, when: s => hasAxis(s.headline.font, 'wdth') },
+    { path: 'motion.text.drift', label: 'Drift', type: 'range', min: 0, max: 0.3, step: 0.005, decimals: 3 },
+    { path: 'motion.text.sway', label: 'Sway', type: 'range', min: 0, max: 30, step: 0.5, decimals: 1, unit: '°' },
+  ] },
+  { title: 'Logos', tab: 'motion', controls: [
+    { path: 'motion.logo.speed', label: 'Speed', type: 'range', min: 0.02, max: 2, step: 0.01 },
+    { path: 'motion.logo.drift', label: 'Drift', type: 'range', min: 0, max: 0.3, step: 0.005, decimals: 3 },
+    { path: 'motion.logo.sway', label: 'Sway', type: 'range', min: 0, max: 30, step: 0.5, decimals: 1, unit: '°' },
+    { path: 'motion.logo.fade', label: 'Fade', type: 'range', min: 0, max: 1, step: 0.01 },
+  ] },
+  { title: 'Export', tab: 'motion', controls: [
+    { path: 'motion.duration', label: 'Seconds', type: 'range', min: 1, max: 60, step: 0.5, decimals: 1 },
+    { path: 'motion.fps', label: 'Frames / s', type: 'select', options: ['24', '30', '60'], number: true },
     { label: 'Loop', type: 'buttons', wide: true, buttons: [
-      { label: 'Fit duration to a seamless loop', onClick: () => { const sp = Math.abs(state.motion.speed) || 0.25; const one = 1 / sp; const n = Math.max(1, Math.round(state.motion.duration / one)); set('motion.duration', +(n * one).toFixed(2)); toast(`Duration set to ${(n * one).toFixed(2)} s (${n} colour loop${n > 1 ? 's' : ''})`); } },
+      { label: 'Fit duration to a seamless colour loop', onClick: () => {
+        const sp = Math.abs(state.motion.beams.speed) || 0.25;
+        const one = 1 / sp;
+        const n = Math.max(1, Math.round(state.motion.duration / one));
+        set('motion.duration', +(n * one).toFixed(2));
+        toast(`Duration set to ${(n * one).toFixed(2)} s (${n} colour loop${n > 1 ? 's' : ''})`);
+      } },
     ] },
   ] },
 ];
@@ -490,6 +588,7 @@ function syncUI() {
   $('#mockup').value = state.mockup.id;
   $('#motion-toggle').checked = state.motion.enabled;
   $('#guides-toggle').checked = state.mockup.showGuides;
+  $('#rulers-toggle').checked = state.mockup.showRulers;
   $('#video-duration').value = state.motion.duration;
   renderPalette();
   controls.refresh();

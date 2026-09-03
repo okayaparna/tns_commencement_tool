@@ -1,6 +1,6 @@
 // SVG exporter: same scene model as the canvas renderer, serialised as vector paths.
 import { buildBeams, ribbonPolygon, stripeRanges, ribbonQuads, coreStops } from './geometry.js';
-import { layoutText, getImage, logoBox, textSplit, FALLBACK_STACK, layerVars, cssWeight } from './paint.js';
+import { layoutText, getImage, logoBox, textSplit, animateText, animateLogo, FALLBACK_STACK, layerVars, cssWeight } from './paint.js';
 import { fontFaceCSS, variationCSS } from './fonts.js';
 import { esc } from './util.js';
 
@@ -53,11 +53,16 @@ export function buildSVG(state, time = 0) {
   const fonts = [state.headline.font];
   const css = fontFaceCSS(fonts);
   let logo = '';
-  if (state.logo.enabled && state.logo.src) {
-    const img = getImage(state.logo.src);
-    if (img) { const bx = logoBox(state.logo, W, H, img); logo = `<image href="${state.logo.src}" x="${num(bx.x)}" y="${num(bx.y)}" width="${num(bx.w)}" height="${num(bx.h)}" opacity="${state.logo.opacity}"/>`; }
+  const lg = animateLogo(state, time);
+  if (lg.enabled && lg.src) {
+    const img = getImage(lg.src);
+    if (img) {
+      const bx = logoBox(lg, W, H, img);
+      const rot = lg.rotate ? ` transform="rotate(${num(lg.rotate)} ${num(bx.x + bx.w / 2)} ${num(bx.y + bx.h / 2)})"` : '';
+      logo = `<image href="${lg.src}" x="${num(bx.x)}" y="${num(bx.y)}" width="${num(bx.w)}" height="${num(bx.h)}" opacity="${lg.opacity}"${rot}/>`;
+    }
   }
-  const text = textSVG(state.headline, W, H);
+  const text = textSVG(animateText(state, time), W, H);
   const layer = (paths, core) =>
     (paths.length ? `<g opacity="${f.opacity}"${blend}>${paths.join('')}</g>` : '') +
     (core.length ? `<g opacity="${f.opacity}">${core.join('')}</g>` : '');
