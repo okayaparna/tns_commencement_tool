@@ -123,31 +123,25 @@ function mark(ctx, x, y, w, colour = '#fff') {
   return MARK_VB.h * k;
 }
 
-// The red information band that runs across the foot of the printed pieces. The mark is left
-// out on purpose — it gets placed by hand — but its space is reserved so the setting holds.
+// The red information band that runs across the foot of the printed pieces: the mark, the date
+// and the ceremony lines.
 function infoPanel(ctx, x, y, w, h, opts = {}) {
-  const { place = 'BROOKLYN, NEW YORK', date = 'MAY 16',
+  const { date = 'MAY 16',
           lines = ['EIGHTY-NINTH ANNUAL UNIVERSITY', 'COMMENCEMENT CEREMONY'] } = opts;
   ctx.save();
   ctx.fillStyle = RED; ctx.fillRect(x, y, w, h);
   ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
   const cy = y + h / 2, pad = h * 0.24, gap = h * 0.30;
-  const placePx = h * 0.135, datePx = h * 0.40, linePx = h * 0.155;
+  const datePx = h * 0.40, linePx = h * 0.155;
 
   // Measure the row, then shrink it as one if the piece is too narrow to take it.
-  ctx.font = neue(placePx, 600, 100); const placeW = place ? ctx.measureText(place).width : 0;
   ctx.font = neue(datePx, 600, 100); const dateW = ctx.measureText(date).width;
   ctx.font = neue(linePx, 400, 100); const textW = Math.max(...lines.map(l => ctx.measureText(l).width));
-  const markW = h * 0.95;                       // the space the mark will occupy
-  const total = pad * 2 + placeW + gap + markW + gap + dateW + gap + textW;
+  const markW = h * 0.95;
+  const total = pad * 2 + markW + gap + dateW + gap + textW;
   const k = Math.min(1, (w - pad * 2) / (total - pad * 2));
 
   let cx = x + pad;
-  if (place && placeW * k > h * 0.2) {
-    ctx.font = neue(placePx * k, 600, 100);
-    ctx.fillText(place, cx, cy);
-    cx += placeW * k + gap * k;
-  }
   const mw = markW * k;
   mark(ctx, cx, cy - (mw * MARK_VB.h / MARK_VB.w) / 2, mw);
   cx += mw + gap * k;

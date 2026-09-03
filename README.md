@@ -63,8 +63,8 @@ then visit http://localhost:8765 (ES modules do not run from `file://`).
 - **Sizes**: presets for screen, social, story, poster, program cover/spread, arena ribbon,
   banner, badge, or custom pixel sizes.
 - **Mockups**: arena jumbotron, program booklet, poster on wall, phone story, social post, name
-  badge. The booklet and badge carry the red information band the printed pieces have — place,
-  date and ceremony, set in the brand face beside the mark. The badge is the same red panel with
+  badge. The booklet and badge carry the red information band the printed pieces have — the
+  mark, the date and the ceremony, set in the brand face. The badge is the same red panel with
   the mark, the wearer's name and their school. The story carries real Instagram chrome — progress segments, poster row, reply bar and
   the scrims behind them — so you can see the band your type has to stay clear of. The social
   post shows two crops side by side, the 4:5 and the asset's own ratio, rising in when you pick
