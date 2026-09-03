@@ -528,7 +528,7 @@ const SCHEMA = [
     { path: 'fill.stripes', label: 'Stripes', type: 'range', min: 2, max: 8, step: 1, when: s => s.fill.mode === 'stripes' },
     { path: 'fill.seam', label: 'Seam width', type: 'range', min: 0, max: 0.6, step: 0.01, when: s => s.fill.mode === 'stripes' },
     { path: 'fill.centreSeam', label: 'Centre seam', type: 'range', min: 0, max: 0.9, step: 0.01 },
-    { path: 'fill.edgeFade', label: 'Edge fade', type: 'range', min: 0, max: 1, step: 0.01, when: s => s.fill.axis === 'across' && s.fill.mode !== 'solid' },
+    { path: 'fill.edgeFade', label: 'Edge fade', type: 'range', min: 0, max: 1, step: 0.01 },
     { path: 'fill.core', label: 'Core heat', type: 'range', min: 0, max: 1, step: 0.01 },
     { path: 'fill.coreFocus', label: 'Core focus', type: 'range', min: 0.6, max: 8, step: 0.1, decimals: 1, when: s => s.fill.core > 0 },
     { path: 'fill.blend', label: 'Blend', type: 'select', options: BLENDS },

@@ -1,5 +1,5 @@
 // SVG exporter: same scene model as the canvas renderer, serialised as vector paths.
-import { buildBeams, ribbonPolygon, stripeRanges, carveCentre, ribbonQuads, coreStops, mirrorStops, visibleSpan } from './geometry.js';
+import { buildBeams, ribbonPolygon, stripeRanges, carveCentre, ribbonQuads, coreStops, mirrorStops, fadeStops, sampleStops, visibleSpan } from './geometry.js';
 import { layoutText, getImage, logoBox, textSplit, FALLBACK_STACK, layerVars, cssWeight } from './paint.js';
 import { fontFaceCSS, variationCSS } from './fonts.js';
 import { esc } from './util.js';
@@ -34,6 +34,18 @@ export function buildSVG(state, time = 0) {
     b.stripes.forEach((st, j) => {
       const stroke = f.edge > 0 ? ` stroke="${f.edgeColor}" stroke-width="${num(f.edge * m / 1000)}" stroke-linejoin="round"` : '';
       for (const [lo, hi] of carveCentre(ranges[j], f.centreSeam)) {
+        if (!across && f.edgeFade > 0) {
+          const prof = fadeStops(f.edgeFade);
+          const qs = ribbonQuads(b.pts, b.widths, lo, hi, 0, 0);
+          qs.forEach((q, qi) => {
+            const col = sampleStops(st.stops, qs.length < 2 ? 0.5 : qi / (qs.length - 1));
+            const id = `f${bi}_${j}_${qi}`;
+            defs.push(`<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${num(q.a.x)}" y1="${num(q.a.y)}" x2="${num(q.z.x)}" y2="${num(q.z.y)}">` +
+              prof.map(t => `<stop offset="${num(t.pos * 100)}%" stop-color="${col}"${t.alpha < 1 ? ` stop-opacity="${t.alpha.toFixed(3)}"` : ''}/>`).join('') + '</linearGradient>');
+            into.push(`<path d="${pathOf(q.poly)}" fill="url(#${id})"/>`);
+          });
+          continue;
+        }
         if (across) {
           const stops = mirrorStops(st.stops, f.edgeFade)
             .map(t => `<stop offset="${num(t.pos * 100)}%" stop-color="${t.color}"${t.alpha < 1 ? ` stop-opacity="${t.alpha.toFixed(3)}"` : ''}/>`).join('');

@@ -23,9 +23,12 @@ export const SIZE_PRESETS = [
 // spread mean different things per template, so carrying them across turns a good fan into a
 // pile of wedges — picking a pattern applies its own numbers (and Undo puts yours back).
 export const TEMPLATES = [
+  // Wide, soft, regular strokes that overlap rather than tile: at count 1 that is a single
+  // plume, and it stays readable as the count climbs. Narrow packed strokes only work at one
+  // count, and collapse to a hairline the moment you turn the count down.
   { id: 'rays', label: 'Rays from focus', hint: 'Beams fan out from one point', defaults: {
-    count: 14, baseWidth: 0.006, widthVariation: 0.6, outerWidth: 0.14, edgeCurve: 1.3, warp: 0,
-    focusX: 0.5, focusY: -0.15, angle: 90, span: 70, twoSided: false, jitter: 0.6, pack: 0,
+    count: 9, baseWidth: 0.05, widthVariation: 0, outerWidth: 0.45, edgeCurve: 1.25, warp: 0,
+    focusX: 0.5, focusY: -0.04, angle: 90, span: 40, twoSided: false, jitter: 0, pack: 0,
     rotate: 0, scale: 1, offsetX: 0, offsetY: 0,
   } },
   { id: 'weave', label: 'Weave', hint: 'Straight ribbons crossing', defaults: {
@@ -55,7 +58,7 @@ export const MOCKUPS = [
 export const BLENDS = ['normal', 'multiply', 'screen', 'lighten', 'darken'];
 
 export const DEFAULT_STATE = {
-  version: 7,
+  version: 8,
   size: { preset: 'wide', w: 1920, h: 1080 },
   background: BRAND.blue,
   palette: [BRAND.pink, BRAND.green, BRAND.red, BRAND.blue],
@@ -81,7 +84,7 @@ export const DEFAULT_STATE = {
   },
   fill: {
     mode: 'gradient',     // solid | gradient | stripes
-    axis: 'length',       // length | across — which way the palette runs on a stroke
+    axis: 'across',       // length | across — which way the palette runs on a stroke
     colorStep: 1,         // palette index step per beam
     runSpread: 1,         // colours per beam length (1 = one pair)
     blendSpace: 'oklch',  // oklch | oklab | hard — how colours transition along a beam
@@ -90,8 +93,8 @@ export const DEFAULT_STATE = {
     stripes: 3,           // stripes mode: sub-bands per beam
     seam: 0.06,           // gap between stripes (fraction of beam width)
     centreSeam: 0,        // gap carved down the middle of every stroke, splitting it in two
-    edgeFade: 0,          // how much of the half-width dissolves to nothing at the rims
-    core: 0,              // brightness of the lit centreline of each beam (0 = flat section)
+    edgeFade: 0.32,       // how much of the half-width dissolves to nothing at the rims
+    core: 0.3,            // brightness of the lit centreline of each beam (0 = flat section)
     coreFocus: 2.2,       // how tightly that brightness is gathered on the centreline
     blend: 'normal',
     opacity: 1,
@@ -128,24 +131,24 @@ export const LOOKS = [
   { id: 'weave-blue', label: 'Weave · blue', swatch: [BRAND.blue, BRAND.pink, BRAND.green, BRAND.red], state: {
     background: BRAND.blue, palette: [BRAND.pink, BRAND.green, BRAND.red, BRAND.blue],
     shape: { template: 'weave', count: 9, baseWidth: 0.09, angle: -18, span: 34, spread: 0.9, jitter: 0.5, seed: 7 },
-    fill: { mode: 'gradient', blend: 'normal' }, headline: { text: '2025', size: 0.62 },
+    fill: { axis: 'length', edgeFade: 0, core: 0, mode: 'gradient', blend: 'normal' }, headline: { text: '2025', size: 0.62 },
   } },
   { id: 'fan-pink', label: 'Fan · pink poster', swatch: [BRAND.pink, BRAND.red, BRAND.blue, BRAND.green], state: {
     background: BRAND.pink, palette: [BRAND.red, BRAND.blue, BRAND.green, BRAND.pink],
     shape: { template: 'rays', count: 14, baseWidth: 0.006, outerWidth: 0.14, edgeCurve: 1.3, focusX: 0.5, focusY: -0.15, angle: 90, span: 70, twoSided: false, jitter: 0.6, seed: 3, widthVariation: 0.6 },
-    fill: { mode: 'stripes', stripes: 3, seam: 0.04, blend: 'normal' },
+    fill: { axis: 'length', edgeFade: 0, core: 0, mode: 'stripes', stripes: 3, seam: 0.04, blend: 'normal' },
     headline: { text: '20\n25', size: 0.42, lineHeight: 0.84, letterSpacing: -0.02 },
   } },
   { id: 'fan-green', label: 'Fan · green poster', swatch: [BRAND.green, BRAND.pink, BRAND.red, BRAND.blue], state: {
     background: BRAND.green, palette: [BRAND.pink, BRAND.red, BRAND.blue, BRAND.green],
     shape: { template: 'rays', count: 14, baseWidth: 0.006, outerWidth: 0.14, edgeCurve: 1.3, focusX: 0.55, focusY: -0.15, angle: 90, span: 70, twoSided: false, jitter: 0.6, seed: 5, widthVariation: 0.6 },
-    fill: { mode: 'stripes', stripes: 3, seam: 0.04 },
+    fill: { axis: 'length', edgeFade: 0, core: 0, mode: 'stripes', stripes: 3, seam: 0.04 },
     headline: { text: '20\n25', size: 0.42, lineHeight: 0.84, letterSpacing: -0.02 },
   } },
   { id: 'streamers', label: 'Streamers merge', swatch: [BRAND.blue, BRAND.green, BRAND.pink, BRAND.red], state: {
     background: BRAND.blue, palette: [BRAND.pink, BRAND.green, BRAND.red],
     shape: { template: 'streamers', count: 10, baseWidth: 0.07, spread: 1.1, pinch: 0.5, tension: 0.5, focusX: 0.5, focusY: 0.5, angle: 10, jitter: 0.6, seed: 11 },
-    fill: { mode: 'gradient', blend: 'normal', runSpread: 2 },
+    fill: { axis: 'length', edgeFade: 0, core: 0, mode: 'gradient', blend: 'normal', runSpread: 2 },
     headline: { text: '2025', size: 0.5 },
   } },
 ];
