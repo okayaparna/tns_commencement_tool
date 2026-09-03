@@ -1,6 +1,7 @@
 // Turns the document state into a list of beams (ribbons) in asset pixel space.
 // A beam = centreline points + per-point widths + colour sets (one per stripe).
 import { mulberry32, lerp, clamp, cycleColorOklch, mod } from './util.js';
+import { TEMPLATES } from './state.js';
 
 const lerpPt = (a, b, t) => ({ x: lerp(a.x, b.x, t), y: lerp(a.y, b.y, t) });
 
@@ -47,16 +48,23 @@ export function buildBeams(state, time = 0) {
   const nor = { x: -dir.y, y: dir.x };
   const local = (u, v) => ({ x: anchor.x + u * dir.x + v * nor.x, y: anchor.y + u * dir.y + v * nor.y });
   const frac = i => (n === 1 ? 0.5 : i / (n - 1));
-  // `pack` closes the gaps: it drives each beam's width toward the spacing between
-  // neighbours, so they meet edge to edge, and quiets the jitter that would reopen them.
+  // `pack` closes the gaps by moving the width the strokes are measured against toward the
+  // spacing between neighbours. It sets the reference, it does not take the width over: the
+  // stroke-width and outer-edge settings scale against whatever that reference is, so they keep
+  // working at pack 1 — a stroke narrower than its neighbour spacing simply leaves a gap again.
+  // The pattern's own default is the value that lands exactly gapless, so a fresh document with
+  // pack at 1 tiles perfectly and every notch away from that default is a visible change.
   const pack = clamp(s.pack ?? 0, 0, 1);
-  const gap = 1 - pack;
+  const gap = 1 - pack;                        // only the jitter is damped, to keep pack honest
+  const shipped = TEMPLATES.find(t => t.id === s.template)?.defaults || {};
   const spacing = tgt => (n > 1 ? tgt / (n - 1) : m * s.baseWidth);
-  const varyOf = i => Math.max(0.15, 1 + J[i].w * 2 * s.widthVariation * gap);
-  const widthOf = (i, packed) => {
-    const base = m * s.baseWidth * varyOf(i);
-    return packed == null ? base : lerp(base, packed, pack);
-  };
+  const varyOf = i => Math.max(0.15, 1 + J[i].w * 2 * s.widthVariation);
+  // Blend the absolute width with the packed one, the packed one scaled by how far the setting
+  // sits from the default that fills the spacing.
+  const toward = (value, ref, packed) => lerp(m * value, packed * (ref ? value / ref : 1), pack);
+  const widthOf = (i, packed) => (packed == null
+    ? m * s.baseWidth * varyOf(i)
+    : toward(s.baseWidth, shipped.baseWidth, packed) * varyOf(i));
 
   const beams = [];
   const push = (i, pts, widths) => beams.push({ i, pts, widths });
@@ -95,13 +103,15 @@ export function buildBeams(state, time = 0) {
       // Neighbours are span/(n-1) apart, so at lenRef they are lenRef*span/(n-1) apart: an outer
       // edge exactly that wide leaves no wedge of background between them, and the stroke has to
       // start from nothing at the focus for the fan to close up all the way in.
-      const outer = lerp(m * s.outerWidth, n > 1 ? lenRef * span / (n - 1) : m * s.outerWidth, pack);
-      const curve = lerp(s.edgeCurve, 1, pack);
+      const outer = n > 1
+        ? toward(s.outerWidth, shipped.outerWidth, lenRef * span / (n - 1))
+        : m * s.outerWidth;
+      const curve = s.edgeCurve;
       for (let i = 0; i < n; i++) {
         const a = ang - span / 2 + span * frac(i) + J[i].a * s.jitter * gap * span / Math.max(2, n - 1);
         const d = { x: Math.cos(a), y: Math.sin(a) };
         const t0 = s.twoSided ? -1 : 0;
-        const w0 = m * s.baseWidth * varyOf(i) * gap, w1 = outer * varyOf(i);
+        const w0 = m * s.baseWidth * varyOf(i), w1 = outer * varyOf(i);
         // Warp combs the fan: strokes bow away from its axis, the outer ones most, and none of
         // it at the focus so they still converge to a point.
         const bow = s.warp * m * (frac(i) - 0.5) * 2;
