@@ -35,6 +35,11 @@ then visit http://localhost:8765 (ES modules do not run from `file://`).
   that straight line; *Hard* does not mix at all (crisp bands, closest to the 2025 posters).
   Mid-gradient chroma is always held up toward the more saturated of the two colours, so a mix
   never sags toward grey.
+- **Position**: the type and the mark share one block — alignment buttons that snap the item to a
+  canvas edge or its centre, and X/Y in pixels. Alignment moves the item on the page; it works on
+  the item's box and shifts its anchor by however far the box has to travel, so snapping a block
+  flush left does not re-rag the lines inside it. A button lights when the item is already there.
+  The type keeps its own *Text alignment* row, which is the different thing it sounds like.
 - **Direct manipulation**: drag the headline to move it and its corner grip to scale it, right on
   the canvas — and the same for the mark. Frames and grips come with *Guides & anchor*, so
   turning those off gives a clean preview; dragging either one still works — and inside a mockup too, tilted booklet included, since the stage inverts whatever
@@ -76,8 +81,7 @@ then visit http://localhost:8765 (ES modules do not run from `file://`).
 - **Logo**: The New School mark, on by default and switchable off, in white, black or red. It is
   the only logo — no uploads — and it is drawn as vector, so it stays sharp at poster size and
   exports as paths in the SVG rather than an embedded bitmap. Its panel carries the same
-  a position block: the alignment buttons snap it to a canvas edge or centre — they move it on
-  the page, they are not about how it hangs off its own point — and X/Y read in pixels. On the
+  the same position block the type has. On the
   canvas it gets the same frame and corner grip as the type: drag to move, drag the corner to
   size it.
 - **Rulers**: asset-pixel rules along the top and left, with the headline's extent shaded on

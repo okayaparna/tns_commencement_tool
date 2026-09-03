@@ -489,9 +489,53 @@ const SNAP_Y = {
   middle: snapIcon('M2.5 8h11', 'x="5" y="4.3" width="6" height="7.4"'),
   bottom: snapIcon('M2.5 13.4h11', 'x="5" y="4" width="6" height="7.4"'),
 };
-// Which canvas edge the mark is currently sitting against, if any.
-const snapX = o => (o.align === 'left' && o.x === 0 ? 'left' : o.align === 'center' && o.x === 0.5 ? 'center' : o.align === 'right' && o.x === 1 ? 'right' : '');
-const snapY = o => (o.valign === 'top' && o.y === 0 ? 'top' : o.valign === 'middle' && o.y === 0.5 ? 'middle' : o.valign === 'bottom' && o.y === 1 ? 'bottom' : '');
+// Canvas alignment works on the item's box, not its anchor: it shifts the anchor by however
+// far the box has to travel. That leaves the type's own alignment alone — snapping a block
+// flush left should not re-rag the lines inside it.
+const boxOf = kind => (kind === 'text'
+  ? textBox(state.headline)
+  : (state.logo.enabled ? logoBox(state.logo, state.size.w, state.size.h) : null));
+const itemOf = kind => (kind === 'text' ? state.headline : state.logo);
+
+function snapX(kind) {
+  const b = boxOf(kind); if (!b) return '';
+  const W = state.size.w, e = Math.max(1, W * 0.002);
+  if (Math.abs(b.x) < e) return 'left';
+  if (Math.abs(b.x + b.w - W) < e) return 'right';
+  if (Math.abs(b.x + b.w / 2 - W / 2) < e) return 'center';
+  return '';
+}
+function snapY(kind) {
+  const b = boxOf(kind); if (!b) return '';
+  const H = state.size.h, e = Math.max(1, H * 0.002);
+  if (Math.abs(b.y) < e) return 'top';
+  if (Math.abs(b.y + b.h - H) < e) return 'bottom';
+  if (Math.abs(b.y + b.h / 2 - H / 2) < e) return 'middle';
+  return '';
+}
+function setSnapX(kind, where) {
+  const b = boxOf(kind); if (!b) return;
+  const W = state.size.w;
+  const target = where === 'left' ? 0 : where === 'center' ? (W - b.w) / 2 : W - b.w;
+  set(`${kind === 'text' ? 'headline' : 'logo'}.x`, +(itemOf(kind).x + (target - b.x) / W).toFixed(4));
+}
+function setSnapY(kind, where) {
+  const b = boxOf(kind); if (!b) return;
+  const H = state.size.h;
+  const target = where === 'top' ? 0 : where === 'middle' ? (H - b.h) / 2 : H - b.h;
+  set(`${kind === 'text' ? 'headline' : 'logo'}.y`, +(itemOf(kind).y + (target - b.y) / H).toFixed(4));
+}
+// The pair of alignment segments, for whichever item.
+const snapRow = kind => ({ type: 'fields', items: [
+  { type: 'iconseg', get: () => snapX(kind), onSet: v => setSnapX(kind, v), options: [
+    { value: 'left', icon: SNAP_X.left, title: 'Align to the left edge' },
+    { value: 'center', icon: SNAP_X.center, title: 'Centre horizontally' },
+    { value: 'right', icon: SNAP_X.right, title: 'Align to the right edge' } ] },
+  { type: 'iconseg', get: () => snapY(kind), onSet: v => setSnapY(kind, v), options: [
+    { value: 'top', icon: SNAP_Y.top, title: 'Align to the top edge' },
+    { value: 'middle', icon: SNAP_Y.middle, title: 'Centre vertically' },
+    { value: 'bottom', icon: SNAP_Y.bottom, title: 'Align to the bottom edge' } ] },
+] });
 
 const VALIGN_ICONS = {
   top: '<svg viewBox="0 0 16 16"><path d="M3 3h10"/><path d="M8 13.2V5.6M5.6 8 8 5.6 10.4 8"/></svg>',
@@ -552,6 +596,7 @@ const TYPE_GROUP = { controls: [
       { value: 'bottom', icon: VALIGN_ICONS.bottom, title: 'Align bottom' } ] },
   ] },
   { type: 'sublabel', text: 'Position' },
+  snapRow('text'),
   { type: 'fields', items: [
     { type: 'field', text: 'X', title: 'X (px)', min: -20000, max: 20000, step: 1, scrub: 3, decimals: 0,
       get: s => s.headline.x * s.size.w, onSet: v => set('headline.x', v / state.size.w) },
@@ -565,12 +610,6 @@ const TYPE_GROUP = { controls: [
   { label: 'Beams behind', type: 'range', min: 0, max: 40, step: 1, decimals: 0,
     get: s => textSplit(s.headline, Math.round(s.shape.count)),
     onSet: v => set('headline.depth', clamp(v / Math.max(1, Math.round(state.shape.count)), 0, 1)) },
-  { label: 'Place', type: 'buttons', wide: true, buttons: [
-    { label: 'Centre', onClick: () => patch({ headline: { x: 0.5, y: 0.5, align: 'center', valign: 'middle' } }) },
-    { label: 'Top-left', onClick: () => patch({ headline: { x: 0.05, y: 0.06, align: 'left', valign: 'top' } }) },
-    { label: 'Bottom-left', onClick: () => patch({ headline: { x: 0.05, y: 0.94, align: 'left', valign: 'bottom' } }) },
-    { label: 'Bottom-right', onClick: () => patch({ headline: { x: 0.95, y: 0.94, align: 'right', valign: 'bottom' } }) },
-  ] },
 ] };
 
 // The raw axes, for anything between two named instances.
@@ -634,23 +673,8 @@ const SCHEMA = [
     { path: 'logo.colour', label: 'Colour', type: 'seg', options: MARK_COLOURS },
     { path: 'logo.width', label: 'Width', type: 'range', min: 0.02, max: 1, step: 0.005, decimals: 3 },
     { path: 'logo.opacity', label: 'Opacity', type: 'range', min: 0, max: 1, step: 0.01 },
-    { type: 'sublabel', text: 'Alignment' },
-    { type: 'fields', items: [
-      // These move the mark on the canvas rather than describe how it hangs off its own point.
-      { type: 'iconseg', get: s => snapX(s.logo),
-        onSet: v => patch({ logo: { align: v, x: v === 'left' ? 0 : v === 'center' ? 0.5 : 1 } }),
-        options: [
-          { value: 'left', icon: SNAP_X.left, title: 'Align to the left edge' },
-          { value: 'center', icon: SNAP_X.center, title: 'Centre horizontally' },
-          { value: 'right', icon: SNAP_X.right, title: 'Align to the right edge' } ] },
-      { type: 'iconseg', get: s => snapY(s.logo),
-        onSet: v => patch({ logo: { valign: v, y: v === 'top' ? 0 : v === 'middle' ? 0.5 : 1 } }),
-        options: [
-          { value: 'top', icon: SNAP_Y.top, title: 'Align to the top edge' },
-          { value: 'middle', icon: SNAP_Y.middle, title: 'Centre vertically' },
-          { value: 'bottom', icon: SNAP_Y.bottom, title: 'Align to the bottom edge' } ] },
-    ] },
     { type: 'sublabel', text: 'Position' },
+    snapRow('logo'),
     { type: 'fields', items: [
       { type: 'field', text: 'X', title: 'X (px)', min: -20000, max: 20000, step: 1, scrub: 3, decimals: 0,
         get: s => s.logo.x * s.size.w, onSet: v => set('logo.x', v / state.size.w) },
