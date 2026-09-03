@@ -1,7 +1,9 @@
 .DS_Store
 node_modules/
-# Drop licensed font files here; they are loaded at runtime, not committed.
+# The variable brand face ships with the tool so a deployed copy can set the type.
+# The other cuts are unused — fonts/fonts.json loads the variable one only — so they stay out.
 fonts/*.otf
 fonts/*.ttf
 fonts/*.woff
 fonts/*.woff2
+!fonts/NeueDisplayNextVariable.ttf
