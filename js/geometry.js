@@ -114,6 +114,14 @@ export function buildBeams(state, time = 0) {
     const xs = cs.map(p => p.x), ys = cs.map(p => p.y);
     return { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) };
   })();
+  // How far the anchor is from the furthest corner of the region that maps onto the canvas.
+  // Beams have to out-reach this or their ends show; Scale, Rotate and Offset all move it.
+  const reach = Math.max(
+    Math.hypot(clipRect.x0 - anchor.x, clipRect.y0 - anchor.y),
+    Math.hypot(clipRect.x1 - anchor.x, clipRect.y0 - anchor.y),
+    Math.hypot(clipRect.x1 - anchor.x, clipRect.y1 - anchor.y),
+    Math.hypot(clipRect.x0 - anchor.x, clipRect.y1 - anchor.y));
+
   // clipSegment works on (0,0)-(W,H) plus a margin, so shift into that frame and back.
   const clipToView = (p0, p1, margin) => {
     const off = { x: clipRect.x0, y: clipRect.y0 };
@@ -126,10 +134,13 @@ export function buildBeams(state, time = 0) {
   switch (s.template) {
     case 'rays': {
       const span = s.span * Math.PI / 180;
-      const len = diag * 1.6, N = 40;
+      // The width profile stays pegged to a fixed reference length, so flare keeps its meaning
+      // however far the ray actually has to be drawn to clear the frame.
+      const lenRef = diag * 1.6;
+      const len = Math.max(lenRef, reach * 1.1), N = 40;
       // Neighbours are span/(n-1) apart, so at distance d they are d*span/(n-1) apart.
       // A flare that grows at exactly that rate leaves no wedge of background between them.
-      const flare = lerp(s.flare, n > 1 ? len * span / ((n - 1) * m) : s.flare, pack);
+      const flare = lerp(s.flare, n > 1 ? lenRef * span / ((n - 1) * m) : s.flare, pack);
       const flareCurve = lerp(s.flareCurve, 1, pack);
       for (let i = 0; i < n; i++) {
         const a = ang - span / 2 + span * frac(i) + J[i].a * s.jitter * gap * span / Math.max(2, n - 1);
@@ -139,7 +150,7 @@ export function buildBeams(state, time = 0) {
         for (let k = 0; k <= N; k++) {
           const t = lerp(t0, 1, k / N);
           pts.push({ x: anchor.x + d.x * t * len, y: anchor.y + d.y * t * len });
-          widths.push(widthOf(i) + m * flare * Math.pow(Math.abs(t), flareCurve));
+          widths.push(widthOf(i) + m * flare * Math.pow(Math.abs(t) * len / lenRef, flareCurve));
         }
         push(i, pts, widths);
       }
@@ -160,7 +171,7 @@ export function buildBeams(state, time = 0) {
       break;
     }
     case 'streamers': {
-      const L = diag * 1.3;
+      const L = Math.max(diag * 1.3, reach * 2.2);
       const order = [...Array(n).keys()].sort((a, b) => J[a].s - J[b].s); // shuffled exits so ribbons cross
       for (let i = 0; i < n; i++) {
         const vA = (frac(i) - 0.5) * s.spread * H + J[i].o * s.jitter * gap * H * 0.25;
