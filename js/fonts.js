@@ -95,11 +95,24 @@ export function axisRange(name, tag) {
 // Canvas cannot set font-variation-settings, so each axis combination is registered as its own
 // FontFace under an alias family. Returns the alias once loaded, and the base family until then
 // (so text never flashes in a fallback face).
+//
+// Each registration costs a full parse of the face, so the axes are snapped to a grid before
+// they become an alias. Without it a slider drag asks for a different combination every pixel,
+// none of them finish before the value has moved on, and the type never appears to change at
+// all. The grid is 25 for the two big axes, which every one of the font's own named instances
+// sits on exactly — 100, 150, 200, 300, 400, 550, 700, 800, 900 and 50, 75, 100, 125, 150, 200
+// — so picking a style still lands on the real thing.
+const AXIS_GRID = { wght: 25, wdth: 25, slnt: 5 };
+export const snapAxis = (tag, v) => {
+  const g = AXIS_GRID[tag];
+  return g ? Math.round(v / g) * g : v;
+};
+
 export function resolveFamily(name, vars) {
   const f = custom.get(name);
   if (!f || !f.axes) return name;
   const pairs = f.axes
-    .map(ax => [ax.tag, vars && vars[ax.tag] != null ? vars[ax.tag] : ax.def])
+    .map(ax => [ax.tag, vars && vars[ax.tag] != null ? snapAxis(ax.tag, vars[ax.tag]) : ax.def])
     .filter(([tag, v]) => v != null);
   if (!pairs.length) return name;
   const settings = pairs.map(([tag, v]) => `"${tag}" ${v}`).join(', ');
@@ -110,7 +123,7 @@ export function resolveFamily(name, vars) {
   variants.set(alias, 'pending');
   (async () => {
     try {
-      const face = new FontFace(alias, `url(${f.dataUrl})`, { variationSettings: settings });
+      const face = new FontFace(alias, `url(${f.srcUrl || f.dataUrl})`, { variationSettings: settings });
       await face.load();
       document.fonts.add(face);
       variants.set(alias, 'ready');
@@ -142,9 +155,14 @@ export async function registerFontFromDataUrl(name, dataUrl, format) {
   const face = new FontFace(name, `url(${dataUrl})`);
   await face.load();
   document.fonts.add(face);
-  let axes = null, instances = null;
-  try { const buf = dataUrlToBuffer(dataUrl); axes = parseAxes(buf); instances = parseInstances(buf); } catch (_) {}
-  custom.set(name, { dataUrl, format: format || formatOf(dataUrl), axes, instances });
+  let axes = null, instances = null, srcUrl = null;
+  try {
+    const buf = dataUrlToBuffer(dataUrl);
+    axes = parseAxes(buf); instances = parseInstances(buf);
+    // Axis variants load from a blob rather than re-decoding the base64 on every registration.
+    srcUrl = URL.createObjectURL(new Blob([buf], { type: 'font/ttf' }));
+  } catch (_) {}
+  custom.set(name, { dataUrl, srcUrl, format: format || formatOf(dataUrl), axes, instances });
   notify();
   return name;
 }

@@ -614,9 +614,9 @@ const TYPE_GROUP = { controls: [
 
 // The raw axes, for anything between two named instances.
 const AXES_GROUP = { controls: [
-  { path: 'headline.wght', label: 'Weight', type: 'range', step: 1, decimals: 0, min: axis('wght', { min: 100, max: 900 }).min, max: axis('wght', { min: 100, max: 900 }).max, when: s => hasAxis(s.headline.font, 'wght') },
-  { path: 'headline.wdth', label: 'Width', type: 'range', step: 1, decimals: 0, min: axis('wdth', { min: 50, max: 200 }).min, max: axis('wdth', { min: 50, max: 200 }).max, when: s => hasAxis(s.headline.font, 'wdth') },
-  { path: 'headline.slnt', label: 'Slant', type: 'range', step: 0.5, decimals: 1, min: axis('slnt', { min: -20, max: 0 }).min, max: axis('slnt', { min: -20, max: 0 }).max, when: s => hasAxis(s.headline.font, 'slnt') },
+  { path: 'headline.wght', label: 'Weight', type: 'range', step: 25, decimals: 0, min: axis('wght', { min: 100, max: 900 }).min, max: axis('wght', { min: 100, max: 900 }).max, when: s => hasAxis(s.headline.font, 'wght') },
+  { path: 'headline.wdth', label: 'Width', type: 'range', step: 25, decimals: 0, min: axis('wdth', { min: 50, max: 200 }).min, max: axis('wdth', { min: 50, max: 200 }).max, when: s => hasAxis(s.headline.font, 'wdth') },
+  { path: 'headline.slnt', label: 'Slant', type: 'range', step: 5, decimals: 0, min: axis('slnt', { min: -20, max: 0 }).min, max: axis('slnt', { min: -20, max: 0 }).max, when: s => hasAxis(s.headline.font, 'slnt') },
 ] };
 
 const SCHEMA = [
